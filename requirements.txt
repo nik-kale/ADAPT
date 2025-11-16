@@ -4,42 +4,54 @@
 pyyaml>=6.0.1
 python-dateutil>=2.8.2
 
-# Async support (built-in for Python 3.9+, but including for completeness)
-# No external async dependencies needed - using asyncio from stdlib
-
 # Optional dependencies for enhanced functionality
-# (Commented out by default - uncomment as needed)
+
+# LLM integration
+anthropic>=0.18.0  # For Anthropic Claude
+openai>=1.12.0     # For OpenAI GPT and local models
+
+# CLI tool
+click>=8.1.0
+rich>=13.7.0
+
+# Cloud provider integrations
+boto3>=1.34.0      # AWS (Secrets Manager, CloudWatch)
+hvac>=2.1.0        # HashiCorp Vault
+
+# Graph database
+neo4j>=5.17.0      # Neo4j graph database
+
+# Web framework (for API and streaming)
+fastapi>=0.109.0
+uvicorn>=0.27.0
+websockets>=12.0
 
 # Data analysis and statistics
-# numpy>=1.24.0
-# scipy>=1.10.0
-# pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+pandas>=2.0.0
 
 # Time series analysis
-# prophet>=1.1.0
-# statsmodels>=0.14.0
-
-# LLM integration (for future releases)
-# openai>=1.0.0
-# anthropic>=0.7.0
+prophet>=1.1.4
+statsmodels>=0.14.0
 
 # Visualization
-# matplotlib>=3.7.0
-# networkx>=3.1
+matplotlib>=3.8.0
+networkx>=3.2.0
 
 # Additional connectors
-# prometheus-client>=0.17.0
-# elasticsearch>=8.0.0
-# boto3>=1.28.0  # For AWS CloudWatch
+prometheus-client>=0.19.0
+elasticsearch>=8.12.0
 
 # Development dependencies
-pytest>=7.4.0
+pytest>=8.0.0
 pytest-cov>=4.1.0
-pytest-asyncio>=0.21.0
-black>=23.7.0
-mypy>=1.4.0
-ruff>=0.0.280
+pytest-asyncio>=0.23.0
+black>=24.1.0
+mypy>=1.8.0
+ruff>=0.2.0
+httpx>=0.26.0      # For testing HTTP clients
 
 # Documentation
-# sphinx>=7.0.0
-# sphinx-rtd-theme>=1.2.0
+sphinx>=7.2.0
+sphinx-rtd-theme>=2.0.0
