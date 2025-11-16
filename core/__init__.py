@@ -13,6 +13,8 @@ This module contains the foundational components for the ADAPT framework:
 - Parallel processing
 - Secrets management
 - Health monitoring
+- Graph database storage
+- Real-time streaming support
 """
 
 from .rca_graph import RCAGraph, RCANode, RCAEdge, NodeType, EdgeType
@@ -41,6 +43,8 @@ from .secrets import (
     get_secret,
 )
 from .health import HealthMonitor, HealthCheck, HealthStatus, get_health_monitor
+from .graph_storage import GraphStorage, Neo4jGraphStorage, get_graph_storage, set_graph_storage
+from .streaming import StreamingOrchestrator, StreamingUpdate, UpdateType
 
 __all__ = [
     # RCA Graph
@@ -104,4 +108,15 @@ __all__ = [
     'HealthCheck',
     'HealthStatus',
     'get_health_monitor',
+
+    # Graph Storage
+    'GraphStorage',
+    'Neo4jGraphStorage',
+    'get_graph_storage',
+    'set_graph_storage',
+
+    # Streaming
+    'StreamingOrchestrator',
+    'StreamingUpdate',
+    'UpdateType',
 ]

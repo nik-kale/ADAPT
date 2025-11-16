@@ -82,8 +82,11 @@ Documentation = "https://adapt-framework.readthedocs.io"
 Repository = "https://github.com/yourusername/ADAPT"
 "Bug Tracker" = "https://github.com/yourusername/ADAPT/issues"
 
+[project.scripts]
+adapt = "cli.main:cli"
+
 [tool.setuptools]
-packages = ["core", "agents", "connectors"]
+packages = ["core", "agents", "connectors", "cli"]
 
 [tool.black]
 line-length = 100
