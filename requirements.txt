@@ -49,6 +49,18 @@ slack-sdk>=3.26.0
 pdpyras>=5.1.0  # PagerDuty
 pyjwt>=2.8.0    # JWT authentication
 
+# Machine Learning and AI
+scikit-learn>=1.4.0      # For Isolation Forest anomaly detection
+spacy>=3.7.0             # For NER-based PII detection
+sentence-transformers>=2.3.0  # For embeddings and RAG
+chromadb>=0.4.22         # Vector database for knowledge base
+
+# OpenTelemetry (Distributed Tracing)
+opentelemetry-api>=1.22.0
+opentelemetry-sdk>=1.22.0
+opentelemetry-exporter-otlp>=1.22.0
+opentelemetry-exporter-otlp-proto-grpc>=1.22.0
+
 # Development dependencies
 pytest>=8.0.0
 pytest-cov>=4.1.0

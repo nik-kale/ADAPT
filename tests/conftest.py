@@ -158,3 +158,46 @@ def reset_global_state():
     # Cleanup after test
     asyncio.run(cache.clear())
     collector.reset()
+
+
+# v3.0 Advanced Features Fixtures
+
+@pytest.fixture
+def sample_tenant_config():
+    """Sample tenant configuration for v3 multi-tenancy tests"""
+    from core.tenant import TenantConfig
+    return TenantConfig(
+        tenant_id="test_tenant",
+        name="Test Tenant",
+        max_concurrent_rca=10,
+        max_storage_gb=100
+    )
+
+
+@pytest.fixture
+def mock_llm_provider():
+    """Mock LLM provider for testing"""
+    class MockLLMProvider:
+        async def complete_with_system(self, system_prompt, user_prompt):
+            return {
+                'content': 'Mock LLM response',
+                'findings': ['Mock finding 1', 'Mock finding 2']
+            }
+    return MockLLMProvider()
+
+
+# Skip markers for optional dependencies
+def pytest_configure(config):
+    """Configure custom pytest markers"""
+    config.addinivalue_line(
+        "markers", "requires_chromadb: tests requiring chromadb"
+    )
+    config.addinivalue_line(
+        "markers", "requires_ml: tests requiring ML dependencies"
+    )
+    config.addinivalue_line(
+        "markers", "requires_llm: tests requiring LLM API access"
+    )
+    config.addinivalue_line(
+        "markers", "integration: integration tests"
+    )
