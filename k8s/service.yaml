@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: adapt-api
+  labels:
+    app: adapt
+    component: api
+spec:
+  type: LoadBalancer
+  selector:
+    app: adapt
+    component: api
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    protocol: TCP
+  sessionAffinity: None

@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: adapt-config
+  labels:
+    app: adapt
+data:
+  config.yaml: |
+    execution_mode: adaptive
+    log_level: INFO
+    max_concurrent_agents: 5
+    confidence_threshold: 0.7
+    enable_remediation_planning: true
+
+    agent_config:
+      log_analyzer:
+        enabled: true
+        priority: 1
+      metric_analyzer:
+        enabled: true
+        priority: 1
+      topology_explainer:
+        enabled: true
+        priority: 2
+      change_correlator:
+        enabled: true
+        priority: 2
+      remediation_planner:
+        enabled: true
+        priority: 3

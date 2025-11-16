@@ -41,7 +41,13 @@ networkx>=3.2.0
 
 # Additional connectors
 prometheus-client>=0.19.0
+prometheus-api-client>=0.5.3
 elasticsearch>=8.12.0
+
+# Integrations
+slack-sdk>=3.26.0
+pdpyras>=5.1.0  # PagerDuty
+pyjwt>=2.8.0    # JWT authentication
 
 # Development dependencies
 pytest>=8.0.0
