@@ -4,7 +4,7 @@ Configuration Management
 Handles loading and validation of ADAPT configuration.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import Dict, List, Optional, Any
 import yaml
 import json
@@ -35,19 +35,61 @@ class ADAPTConfig:
     confidence_threshold: float = 0.7
     enable_remediation_planning: bool = True
 
+    # v3.0 - Multi-Tenancy
+    multi_tenancy_enabled: bool = False
+    default_tenant_id: str = 'default'
+    tenant_isolation_enforcement: bool = True
+
+    # v3.0 - Audit Logging
+    audit_enabled: bool = True
+    audit_storage_backend: str = 'file'  # 'file', 'elasticsearch', 'database'
+    audit_storage_path: str = './data/audit'
+    audit_retention_days: int = 90
+
+    # v3.0 - PII Scrubbing
+    pii_scrubbing_enabled: bool = False
+    pii_scrub_signals: bool = True
+    pii_scrub_results: bool = True
+    pii_hash_instead_of_redact: bool = False
+
+    # v3.0 - Knowledge Base
+    knowledge_base_enabled: bool = False
+    knowledge_base_persist_dir: str = './data/knowledge'
+    knowledge_base_similarity_threshold: float = 0.6
+
+    # v3.0 - Auto-Remediation
+    auto_remediation_enabled: bool = False
+    auto_remediation_auto_approve_low_risk: bool = True
+    auto_remediation_max_concurrent: int = 3
+    auto_remediation_timeout: int = 300
+
+    # v3.0 - Predictive Detection
+    predictive_detection_enabled: bool = False
+    prediction_window_hours: int = 1
+    prediction_confidence_threshold: float = 0.6
+
+    # v3.0 - LLM Integration
+    llm_enabled: bool = False
+    llm_provider: str = 'anthropic'  # 'anthropic', 'openai'
+    llm_model: str = 'claude-3-sonnet-20240229'
+    llm_api_key_env: str = 'ANTHROPIC_API_KEY'
+    llm_max_tokens: int = 4096
+
+    # v3.0 - OpenTelemetry
+    telemetry_enabled: bool = False
+    otlp_endpoint: str = 'http://localhost:4317'
+    telemetry_service_name: str = 'adapt-rca'
+
+    # v3.0 - Graph Storage
+    graph_storage_enabled: bool = False
+    graph_storage_backend: str = 'neo4j'  # 'neo4j', 'memory'
+    neo4j_uri: str = 'bolt://localhost:7687'
+    neo4j_username: str = 'neo4j'
+    neo4j_password_env: str = 'NEO4J_PASSWORD'
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary"""
-        return {
-            'execution_mode': self.execution_mode,
-            'agent_config': self.agent_config,
-            'connector_config': self.connector_config,
-            'playbook_dir': self.playbook_dir,
-            'output_format': self.output_format,
-            'log_level': self.log_level,
-            'max_concurrent_agents': self.max_concurrent_agents,
-            'confidence_threshold': self.confidence_threshold,
-            'enable_remediation_planning': self.enable_remediation_planning,
-        }
+        return asdict(self)
 
     def to_yaml(self) -> str:
         """Convert configuration to YAML string"""

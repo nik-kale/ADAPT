@@ -57,6 +57,13 @@ class AuditEventType(str, Enum):
     TENANT_UPDATED = "tenant.updated"
     TENANT_DISABLED = "tenant.disabled"
 
+    # Remediation
+    REMEDIATION_PLAN_CREATED = "remediation.plan_created"
+    REMEDIATION_APPROVED = "remediation.approved"
+    REMEDIATION_EXECUTED = "remediation.executed"
+    REMEDIATION_FAILED = "remediation.failed"
+    REMEDIATION_ROLLED_BACK = "remediation.rolled_back"
+
     # Integration
     INTEGRATION_CALLED = "integration.called"
     WEBHOOK_SENT = "integration.webhook_sent"

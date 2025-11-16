@@ -46,6 +46,56 @@ from .health import HealthMonitor, HealthCheck, HealthStatus, get_health_monitor
 from .graph_storage import GraphStorage, Neo4jGraphStorage, get_graph_storage, set_graph_storage
 from .streaming import StreamingOrchestrator, StreamingUpdate, UpdateType
 
+# v3.0 Advanced Features
+from .tenant import (
+    TenantConfig,
+    TenantManager,
+    TenantAwareOrchestrator,
+    TenantAwareGraphStorage,
+    get_tenant_context,
+    set_tenant_context,
+    get_user_context,
+    set_user_context,
+)
+from .audit import (
+    AuditLogger,
+    AuditEvent,
+    AuditEventType,
+    AuditLevel,
+    get_audit_logger,
+)
+from .pii_scrubber import (
+    PIIScrubber,
+    PIIPattern,
+    get_pii_scrubber,
+)
+from .knowledge_base import (
+    KnowledgeBase,
+    KnowledgeEntry,
+    RAGEnhancedOrchestrator,
+)
+from .auto_remediation import (
+    AutoRemediationEngine,
+    RemediationPlan,
+    RemediationAction,
+    RemediationStatus,
+    RemediationResult,
+    ActionRisk,
+    get_remediation_engine,
+)
+from .predictive_detection import (
+    PredictiveDetector,
+    IncidentPrediction,
+    PredictionSeverity,
+    PredictiveMonitor,
+)
+from .telemetry import (
+    setup_telemetry,
+    InstrumentedOrchestrator,
+    get_tracer,
+    get_meter,
+)
+
 __all__ = [
     # RCA Graph
     'RCAGraph',
@@ -119,4 +169,52 @@ __all__ = [
     'StreamingOrchestrator',
     'StreamingUpdate',
     'UpdateType',
+
+    # v3.0 - Multi-Tenancy
+    'TenantConfig',
+    'TenantManager',
+    'TenantAwareOrchestrator',
+    'TenantAwareGraphStorage',
+    'get_tenant_context',
+    'set_tenant_context',
+    'get_user_context',
+    'set_user_context',
+
+    # v3.0 - Audit Logging
+    'AuditLogger',
+    'AuditEvent',
+    'AuditEventType',
+    'AuditLevel',
+    'get_audit_logger',
+
+    # v3.0 - PII Scrubbing
+    'PIIScrubber',
+    'PIIPattern',
+    'get_pii_scrubber',
+
+    # v3.0 - Knowledge Base
+    'KnowledgeBase',
+    'KnowledgeEntry',
+    'RAGEnhancedOrchestrator',
+
+    # v3.0 - Auto-Remediation
+    'AutoRemediationEngine',
+    'RemediationPlan',
+    'RemediationAction',
+    'RemediationStatus',
+    'RemediationResult',
+    'ActionRisk',
+    'get_remediation_engine',
+
+    # v3.0 - Predictive Detection
+    'PredictiveDetector',
+    'IncidentPrediction',
+    'PredictionSeverity',
+    'PredictiveMonitor',
+
+    # v3.0 - Telemetry
+    'setup_telemetry',
+    'InstrumentedOrchestrator',
+    'get_tracer',
+    'get_meter',
 ]

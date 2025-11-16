@@ -5,7 +5,7 @@ Closed-loop automation for executing remediation actions with safety controls.
 Includes approval workflows, rollback capabilities, and comprehensive auditing.
 """
 
-from typing import List, Dict, Any, Optional, Callable, Awaitable
+from typing import List, Dict, Any, Optional, Callable, Awaitable, Tuple
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 from enum import Enum

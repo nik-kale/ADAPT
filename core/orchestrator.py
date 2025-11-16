@@ -18,6 +18,26 @@ from .signal_normalizer import NormalizedSignal
 logger = logging.getLogger(__name__)
 
 
+def _get_audit_logger():
+    """Get audit logger if available"""
+    try:
+        from .audit import get_audit_logger
+        return get_audit_logger()
+    except (ImportError, AttributeError):
+        return None
+
+
+def _get_pii_scrubber(config: ADAPTConfig):
+    """Get PII scrubber if enabled"""
+    try:
+        if config.pii_scrubbing_enabled:
+            from .pii_scrubber import PIIScrubber
+            return PIIScrubber(hash_pii=config.pii_hash_instead_of_redact)
+    except (ImportError, AttributeError):
+        pass
+    return None
+
+
 @dataclass
 class OrchestrationContext:
     """
@@ -64,6 +84,10 @@ class RCAOrchestrator:
         self.agents: Dict[str, Any] = {}  # Will hold agent instances
         self.execution_mode = config.execution_mode  # 'sequential', 'parallel', 'adaptive'
 
+        # v3.0 features
+        self.audit_logger = _get_audit_logger() if config.audit_enabled else None
+        self.pii_scrubber = _get_pii_scrubber(config)
+
     def register_agent(self, agent_name: str, agent_instance: Any) -> None:
         """
         Register a diagnostic agent with the orchestrator.
@@ -94,6 +118,32 @@ class RCAOrchestrator:
         """
         logger.info(f"Starting RCA for incident: {incident_id}")
 
+        # v3.0: Audit RCA start
+        if self.audit_logger:
+            try:
+                from .audit import AuditEventType
+                await self.audit_logger.log_event(
+                    event_type=AuditEventType.RCA_STARTED,
+                    action="start_rca",
+                    resource_id=incident_id,
+                    result="started",
+                    details={
+                        'signal_count': len(signals),
+                        'execution_mode': self.execution_mode,
+                        'playbook': playbook.get('name') if playbook else None
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Failed to log audit event: {e}")
+
+        # v3.0: Scrub PII from signals if enabled
+        if self.pii_scrubber and self.config.pii_scrub_signals:
+            try:
+                signals = [self.pii_scrubber.scrub_signal(signal) for signal in signals]
+                logger.info("PII scrubbed from input signals")
+            except Exception as e:
+                logger.warning(f"Failed to scrub PII from signals: {e}")
+
         # Initialize context
         graph = RCAGraph(incident_id)
         context = OrchestrationContext(
@@ -103,31 +153,78 @@ class RCAOrchestrator:
             metadata={'playbook': playbook.get('name') if playbook else None}
         )
 
-        # Phase 1: Initial symptom identification
-        await self._identify_symptoms(context)
+        try:
+            # Phase 1: Initial symptom identification
+            await self._identify_symptoms(context)
 
-        # Phase 2: Run diagnostic agents
-        if self.execution_mode == 'sequential':
-            await self._run_agents_sequential(context)
-        elif self.execution_mode == 'parallel':
-            await self._run_agents_parallel(context)
-        else:  # adaptive
-            await self._run_agents_adaptive(context)
+            # Phase 2: Run diagnostic agents
+            if self.execution_mode == 'sequential':
+                await self._run_agents_sequential(context)
+            elif self.execution_mode == 'parallel':
+                await self._run_agents_parallel(context)
+            else:  # adaptive
+                await self._run_agents_adaptive(context)
 
-        # Phase 3: Synthesize findings
-        await self._synthesize_findings(context)
+            # Phase 3: Synthesize findings
+            await self._synthesize_findings(context)
 
-        # Phase 4: Identify root causes
-        await self._identify_root_causes(context)
+            # Phase 4: Identify root causes
+            await self._identify_root_causes(context)
 
-        # Phase 5: Generate remediation plan
-        if 'remediation_planner' in self.agents:
-            await self._generate_remediation_plan(context)
+            # Phase 5: Generate remediation plan
+            if 'remediation_planner' in self.agents:
+                await self._generate_remediation_plan(context)
 
-        context.end_time = datetime.utcnow()
-        logger.info(f"RCA completed for incident: {incident_id}")
+            context.end_time = datetime.utcnow()
+            logger.info(f"RCA completed for incident: {incident_id}")
 
-        return context
+            # v3.0: Audit RCA completion
+            if self.audit_logger:
+                try:
+                    from .audit import AuditEventType
+                    root_cause_count = len([n for n in context.graph.nodes.values() if n.type.value == 'root_cause'])
+                    await self.audit_logger.log_event(
+                        event_type=AuditEventType.RCA_COMPLETED,
+                        action="complete_rca",
+                        resource_id=incident_id,
+                        result="success",
+                        details={
+                            'duration_seconds': (context.end_time - context.start_time).total_seconds(),
+                            'root_causes_found': root_cause_count,
+                            'agents_executed': len(context.agent_results),
+                            'node_count': len(context.graph.nodes),
+                            'edge_count': len(context.graph.edges)
+                        }
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to log audit event: {e}")
+
+            return context
+
+        except Exception as e:
+            context.end_time = datetime.utcnow()
+            logger.error(f"RCA failed for incident {incident_id}: {e}")
+
+            # v3.0: Audit RCA failure
+            if self.audit_logger:
+                try:
+                    from .audit import AuditEventType
+                    await self.audit_logger.log_event(
+                        event_type=AuditEventType.RCA_FAILED,
+                        action="fail_rca",
+                        resource_id=incident_id,
+                        result="failure",
+                        details={
+                            'error': str(e),
+                            'error_type': type(e).__name__,
+                            'duration_seconds': (context.end_time - context.start_time).total_seconds() if context.end_time else 0
+                        },
+                        level='ERROR'
+                    )
+                except Exception as audit_error:
+                    logger.warning(f"Failed to log audit event: {audit_error}")
+
+            raise
 
     async def _identify_symptoms(self, context: OrchestrationContext) -> None:
         """
