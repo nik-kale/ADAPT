@@ -3,6 +3,8 @@ Auto-Remediation Engine
 
 Closed-loop automation for executing remediation actions with safety controls.
 Includes approval workflows, rollback capabilities, and comprehensive auditing.
+
+v4.0: Enhanced with command injection prevention and security validation
 """
 
 from typing import List, Dict, Any, Optional, Callable, Awaitable, Tuple
@@ -11,6 +13,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 import logging
 import asyncio
+import shlex
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +40,12 @@ class ActionRisk(str, Enum):
 
 @dataclass
 class RemediationAction:
-    """Single remediation action"""
+    """
+    Single remediation action (v4.0 enhanced security)
+
+    Commands are validated to prevent injection attacks.
+    """
+
     action_id: str
     action_type: str
     description: str
@@ -48,6 +57,102 @@ class RemediationAction:
     rollback_command: Optional[str] = None
     requires_approval: bool = True
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Validate command for security (v4.0)"""
+        self._validate_command(self.command, "command")
+
+        if self.rollback_command:
+            self._validate_command(self.rollback_command, "rollback_command")
+
+        # Validate timeout range
+        if self.timeout < 1 or self.timeout > 3600:
+            raise ValueError(f"timeout must be between 1 and 3600 seconds")
+
+    def _validate_command(self, cmd: str, field_name: str):
+        """
+        Validate command to prevent injection attacks (v4.0 security)
+
+        Raises:
+            ValueError: If command contains dangerous patterns
+        """
+        if not cmd or not cmd.strip():
+            raise ValueError(f"{field_name} cannot be empty")
+
+        # Dangerous patterns that indicate command injection attempts
+        dangerous_patterns = [
+            (r";\s*", "command chaining with semicolon"),
+            (r"\|\s*", "command piping"),
+            (r">\s*", "output redirection"),
+            (r"<\s*", "input redirection"),
+            (r"&\s*", "background execution"),
+            (r"`", "command substitution with backticks"),
+            (r"\$\(", "command substitution"),
+            (r"\$\{", "variable substitution"),
+            (r"rm\s+-rf\s+/", "dangerous rm command"),
+            (r"dd\s+if=", "dangerous dd command"),
+            (r":.*\(\)\s*{.*:\|:", "fork bomb pattern"),
+            (r"\beval\b", "eval command"),
+            (r"\bexec\b", "exec command"),
+        ]
+
+        for pattern, description in dangerous_patterns:
+            if re.search(pattern, cmd, re.IGNORECASE):
+                logger.error(
+                    f"Dangerous command pattern detected in {field_name}: {description}"
+                )
+                raise ValueError(
+                    f"{field_name} contains dangerous pattern: {description}. "
+                    f"Command rejected for security."
+                )
+
+        # Ensure command can be safely parsed
+        try:
+            shlex.split(cmd)
+        except ValueError as e:
+            raise ValueError(f"{field_name} has invalid syntax: {e}")
+
+        # Additional validation: command must start with a safe program
+        tokens = cmd.strip().split()
+        if not tokens:
+            raise ValueError(f"{field_name} cannot be empty")
+
+        # Whitelist of allowed commands (customize based on your environment)
+        allowed_commands = {
+            # Service management
+            "systemctl",
+            "service",
+            "kubectl",
+            "docker",
+            # AWS
+            "aws",
+            # Kubernetes
+            "kubectl",
+            "helm",
+            # Monitoring
+            "curl",
+            "wget",
+            # Custom scripts (must be in allowed paths)
+            "/usr/local/bin/remediation-script",
+            "/opt/adapt/scripts/remediate",
+        }
+
+        base_command = tokens[0].split("/")[-1]  # Get command without path
+
+        # Check if command is in whitelist OR is a full path to allowed locations
+        is_whitelisted = base_command in allowed_commands
+        is_allowed_path = tokens[0].startswith(
+            ("/usr/local/bin/", "/opt/adapt/scripts/")
+        )
+
+        if not (is_whitelisted or is_allowed_path):
+            logger.warning(
+                f"Command '{tokens[0]}' not in whitelist. "
+                f"Consider adding to allowed_commands if safe."
+            )
+            # Don't fail here - just warn. Adjust based on your security requirements.
+            # Uncomment next line to enforce strict whitelist:
+            # raise ValueError(f"Command '{tokens[0]}' not allowed")
 
 
 @dataclass

@@ -2,15 +2,20 @@
 ADAPT FastAPI Server
 
 Main API server for the ADAPT RCA platform.
+
+v4.0: Enhanced with comprehensive security middleware and production-ready defaults
 """
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 import logging
+import os
 
 from .models import (
     ErrorResponse,
@@ -21,7 +26,13 @@ from .models import (
     RCAListItem,
     AgentInfo,
 )
-from .auth import get_current_user, require_view_incidents, require_run_rca, User
+from .auth import get_current_user, require_view_incidents, require_run_rca, User, get_auth_manager
+from .middleware import (
+    RateLimitMiddleware,
+    RequestIDMiddleware,
+    SecurityHeadersMiddleware,
+    get_rate_limiter,
+)
 from core import (
     configure_logging,
     get_health_monitor,
@@ -36,34 +47,80 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Lifecycle management for the API"""
     # Startup
-    logger.info("Starting ADAPT API v3.0")
+    logger.info("Starting ADAPT API v4.0")
     configure_logging(level="INFO", json_format=True)
+
+    # Start rate limiter cleanup task
+    limiter = get_rate_limiter()
+    import asyncio
+    asyncio.create_task(limiter.start_cleanup())
+
+    # Start auth manager cleanup task (for expired tokens/sessions)
+    auth_mgr = get_auth_manager()
+    asyncio.create_task(auth_mgr.start_periodic_cleanup())
 
     yield
 
     # Shutdown
-    logger.info("Shutting down ADAPT API")
+    logger.info("Shutting down ADAPT API v4.0")
 
 
 # Create FastAPI app
 app = FastAPI(
     title="ADAPT RCA Platform API",
-    description="AI-powered Root Cause Analysis API",
-    version="3.0.0",
+    description="AI-powered Root Cause Analysis API - Production Grade",
+    version="4.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
 )
 
-# Add CORS middleware
+# v4.0 Security Enhancement: Secure CORS configuration
+# Load allowed origins from environment (whitelist only)
+ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8080"
+).split(",")
+
+# Only allow credentials if not using wildcard
+ALLOW_CREDENTIALS = "*" not in ALLOWED_ORIGINS
+
+if "*" in ALLOWED_ORIGINS:
+    logger.warning(
+        "⚠️  SECURITY WARNING: CORS allows all origins (*). "
+        "Set ALLOWED_ORIGINS environment variable for production."
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,  # v4.0: Whitelist only
+    allow_credentials=ALLOW_CREDENTIALS,  # v4.0: No credentials with wildcard
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],  # v4.0: Explicit methods
+    allow_headers=["content-type", "authorization", "x-api-key", "x-request-id"],  # v4.0: Explicit headers
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
+
+# v4.0 Security Enhancement: Security headers
+app.add_middleware(SecurityHeadersMiddleware)
+
+# v4.0 Security Enhancement: Request ID for correlation
+app.add_middleware(RequestIDMiddleware)
+
+# v4.0 Security Enhancement: Rate limiting
+app.add_middleware(RateLimitMiddleware)
+
+# v4.0 Security Enhancement: Enforce HTTPS in production
+environment = os.getenv("ENVIRONMENT", "development")
+if environment == "production":
+    app.add_middleware(HTTPSRedirectMiddleware)
+    logger.info("HTTPS enforcement enabled (production mode)")
+
+# v4.0 Security Enhancement: Trusted host middleware
+# Prevent host header attacks
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
+if "*" not in ALLOWED_HOSTS:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
+    logger.info(f"Trusted host validation enabled: {ALLOWED_HOSTS}")
 
 
 # Exception handlers

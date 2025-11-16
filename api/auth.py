@@ -2,13 +2,18 @@
 Authentication and Authorization for ADAPT API.
 """
 
-from fastapi import Depends, HTTPException, status, Security
+from fastapi import Depends, HTTPException, status, Security, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyHeader
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 from enum import Enum
 import jwt
 import os
+import secrets
+import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # Security schemes
@@ -88,20 +93,177 @@ class AuthManager:
     """Manages authentication and authorization"""
 
     def __init__(self, secret_key: Optional[str] = None):
-        self.secret_key = secret_key or os.getenv(
-            "ADAPT_SECRET_KEY", "your-secret-key-change-in-production"
-        )
-        self.algorithm = "HS256"
-        self.access_token_expire_minutes = 60
+        # SECURITY: No hardcoded defaults - must be explicitly configured
+        self.secret_key = secret_key or os.getenv("ADAPT_SECRET_KEY")
 
-        # Simple in-memory API key store (replace with database in production)
-        self.api_keys = {
-            os.getenv("ADAPT_API_KEY", "demo-api-key"): User(
-                username="api_user",
-                roles=[Role.ANALYST],
-                tenant_id="default",
+        if not self.secret_key:
+            raise ValueError(
+                "ADAPT_SECRET_KEY environment variable must be set. "
+                "Generate with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
             )
+
+        # Validate secret key strength
+        if len(self.secret_key) < 32:
+            raise ValueError(
+                "ADAPT_SECRET_KEY must be at least 32 characters for security. "
+                "Current length: {}".format(len(self.secret_key))
+            )
+
+        self.algorithm = "HS256"
+        self.access_token_expire_minutes = 15  # Short-lived access tokens
+        self.refresh_token_expire_days = 7
+
+        # Refresh token storage (use Redis in production)
+        self.refresh_tokens: dict = {}
+
+        # Session storage
+        self.sessions: dict = {}
+
+        # API key store - load from environment only, no defaults
+        self.api_keys = self._load_api_keys()
+
+    def _load_api_keys(self) -> Dict[str, User]:
+        """Load API keys from environment (v4.0 security enhancement)"""
+        api_keys_json = os.getenv("ADAPT_API_KEYS_JSON", "{}")
+
+        try:
+            api_keys_data = json.loads(api_keys_json)
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid ADAPT_API_KEYS_JSON format: {e}")
+            api_keys_data = {}
+
+        if not api_keys_data:
+            logger.warning(
+                "⚠️  No API keys configured. Set ADAPT_API_KEYS_JSON environment variable. "
+                "API key authentication will be unavailable."
+            )
+
+        # Convert JSON to User objects
+        api_keys = {}
+        for key, user_data in api_keys_data.items():
+            if len(key) < 32:
+                logger.warning(f"API key too short (< 32 chars), skipping")
+                continue
+
+            api_keys[key] = User(
+                username=user_data.get("username", "unknown"),
+                email=user_data.get("email"),
+                roles=[Role(r) for r in user_data.get("roles", ["viewer"])],
+                tenant_id=user_data.get("tenant_id", "default"),
+            )
+
+        return api_keys
+
+    def create_refresh_token(self, user: User) -> str:
+        """Create long-lived refresh token (v4.0 enhancement)"""
+        refresh_token = secrets.token_urlsafe(32)
+        expire = datetime.utcnow() + timedelta(days=self.refresh_token_expire_days)
+
+        self.refresh_tokens[refresh_token] = {
+            "user": user,
+            "expire": expire,
+            "created_at": datetime.utcnow(),
         }
+
+        return refresh_token
+
+    def refresh_access_token(self, refresh_token: str) -> Optional[str]:
+        """Exchange refresh token for new access token (v4.0 enhancement)"""
+        token_data = self.refresh_tokens.get(refresh_token)
+
+        if not token_data:
+            return None
+
+        if token_data["expire"] < datetime.utcnow():
+            # Token expired, remove it
+            del self.refresh_tokens[refresh_token]
+            return None
+
+        # Create new access token
+        return self.create_access_token(token_data["user"])
+
+    def revoke_refresh_token(self, refresh_token: str) -> bool:
+        """Revoke a refresh token (v4.0 enhancement)"""
+        if refresh_token in self.refresh_tokens:
+            del self.refresh_tokens[refresh_token]
+            return True
+        return False
+
+    def create_session(self, user: User, request: Request) -> str:
+        """Create user session with timeout (v4.0 security enhancement)"""
+        session_id = secrets.token_urlsafe(32)
+
+        self.sessions[session_id] = {
+            "user": user,
+            "created_at": datetime.utcnow(),
+            "last_activity": datetime.utcnow(),
+            "ip_address": request.client.host if request.client else "unknown",
+            "expires_at": datetime.utcnow() + timedelta(hours=8),
+        }
+
+        return session_id
+
+    def validate_session(self, session_id: str, request: Request) -> Optional[User]:
+        """Validate session and return user (v4.0 security enhancement)"""
+        session = self.sessions.get(session_id)
+
+        if not session:
+            return None
+
+        # Check expiration
+        if session["expires_at"] < datetime.utcnow():
+            del self.sessions[session_id]
+            return None
+
+        # Check IP hasn't changed (security measure)
+        current_ip = request.client.host if request.client else "unknown"
+        if session["ip_address"] != current_ip:
+            logger.warning(
+                f"Session IP mismatch: {session['ip_address']} != {current_ip}"
+            )
+            del self.sessions[session_id]
+            return None
+
+        # Update last activity
+        session["last_activity"] = datetime.utcnow()
+
+        return session["user"]
+
+    def cleanup_expired_tokens(self):
+        """Clean up expired refresh tokens and sessions (v4.0 enhancement)"""
+        now = datetime.utcnow()
+
+        # Clean refresh tokens
+        expired_refresh = [
+            token
+            for token, data in self.refresh_tokens.items()
+            if data["expire"] < now
+        ]
+        for token in expired_refresh:
+            del self.refresh_tokens[token]
+
+        # Clean sessions
+        expired_sessions = [
+            session_id
+            for session_id, data in self.sessions.items()
+            if data["expires_at"] < now
+        ]
+        for session_id in expired_sessions:
+            del self.sessions[session_id]
+
+        if expired_refresh or expired_sessions:
+            logger.info(
+                f"Cleaned up {len(expired_refresh)} refresh tokens and "
+                f"{len(expired_sessions)} sessions"
+            )
+
+    async def start_periodic_cleanup(self, interval_seconds: int = 300):
+        """Start periodic cleanup task (v4.0 enhancement)"""
+        import asyncio
+
+        while True:
+            await asyncio.sleep(interval_seconds)
+            self.cleanup_expired_tokens()
 
     def create_access_token(
         self, user: User, expires_delta: Optional[timedelta] = None
@@ -161,8 +323,37 @@ class AuthManager:
         return self.api_keys.get(api_key)
 
 
-# Global auth manager instance
-auth_manager = AuthManager()
+# Global auth manager instance (lazy initialization for dev/test)
+_auth_manager: Optional[AuthManager] = None
+
+
+def get_auth_manager() -> AuthManager:
+    """Get or create global auth manager instance"""
+    global _auth_manager
+
+    if _auth_manager is None:
+        # For development/testing, allow initialization without secret key
+        # by providing a generated one
+        secret_key = os.getenv("ADAPT_SECRET_KEY")
+
+        if not secret_key:
+            environment = os.getenv("ENVIRONMENT", "development")
+
+            if environment == "production":
+                raise ValueError(
+                    "ADAPT_SECRET_KEY must be set in production environment"
+                )
+
+            # Generate temporary secret for development
+            logger.warning(
+                "⚠️  No ADAPT_SECRET_KEY set. Generating temporary secret for development. "
+                "This is INSECURE and should not be used in production!"
+            )
+            secret_key = secrets.token_urlsafe(32)
+
+        _auth_manager = AuthManager(secret_key=secret_key)
+
+    return _auth_manager
 
 
 async def get_current_user(
@@ -174,9 +365,11 @@ async def get_current_user(
 
     Priority: API key > JWT token
     """
+    auth_mgr = get_auth_manager()
+
     # Try API key first
     if api_key:
-        user = auth_manager.verify_api_key(api_key)
+        user = auth_mgr.verify_api_key(api_key)
         if user:
             return user
         raise HTTPException(
@@ -186,7 +379,7 @@ async def get_current_user(
     # Try JWT token
     if credentials:
         token = credentials.credentials
-        return auth_manager.decode_token(token)
+        return auth_mgr.decode_token(token)
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
