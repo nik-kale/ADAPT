@@ -8,6 +8,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+import logging
+import time
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -63,6 +67,80 @@ class BaseAgent(ABC):
         """
         self.name = name
         self.config = config or {}
+
+    async def execute_with_audit(self, context: Any) -> AgentResult:
+        """
+        Execute agent with audit logging (v3.0 wrapper).
+
+        This wraps the execute() method with audit logging if available.
+        """
+        # Try to get audit logger
+        audit_logger = None
+        try:
+            from core.audit import get_audit_logger, AuditEventType
+            audit_logger = get_audit_logger()
+        except (ImportError, AttributeError):
+            pass
+
+        start_time = time.time()
+
+        # Log agent start
+        if audit_logger:
+            try:
+                await audit_logger.log_event(
+                    event_type=AuditEventType.AGENT_ENABLED,  # Reuse existing event
+                    action=f"execute_agent_{self.name}",
+                    resource_id=context.incident_id if hasattr(context, 'incident_id') else 'unknown',
+                    result="started",
+                    details={'agent': self.name}
+                )
+            except Exception as e:
+                logger.warning(f"Failed to log agent start: {e}")
+
+        # Execute agent
+        try:
+            result = await self.execute(context)
+
+            # Log agent completion
+            if audit_logger:
+                try:
+                    await audit_logger.log_event(
+                        event_type=AuditEventType.AGENT_ENABLED,
+                        action=f"complete_agent_{self.name}",
+                        resource_id=context.incident_id if hasattr(context, 'incident_id') else 'unknown',
+                        result="success",
+                        details={
+                            'agent': self.name,
+                            'findings_count': len(result.findings),
+                            'execution_time': time.time() - start_time,
+                            'success': result.success
+                        }
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to log agent completion: {e}")
+
+            return result
+
+        except Exception as e:
+            # Log agent failure
+            if audit_logger:
+                try:
+                    await audit_logger.log_event(
+                        event_type=AuditEventType.AGENT_DISABLED,  # Reuse for failures
+                        action=f"fail_agent_{self.name}",
+                        resource_id=context.incident_id if hasattr(context, 'incident_id') else 'unknown',
+                        result="failure",
+                        details={
+                            'agent': self.name,
+                            'error': str(e),
+                            'execution_time': time.time() - start_time
+                        },
+                        level='ERROR'
+                    )
+                except Exception as audit_error:
+                    logger.warning(f"Failed to log agent failure: {audit_error}")
+
+            raise
 
     @abstractmethod
     async def execute(self, context: Any) -> AgentResult:

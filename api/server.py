@@ -165,7 +165,7 @@ async def root():
 
 # Import and include route modules
 try:
-    from .routes import rca, agents, incidents, tenant, remediation, audit
+    from .routes import rca, agents, incidents, tenant, remediation, audit, knowledge, predictions
 
     app.include_router(rca.router, prefix="/api/v1", tags=["RCA"])
     app.include_router(agents.router, prefix="/api/v1", tags=["Agents"])
@@ -175,6 +175,8 @@ try:
     app.include_router(tenant.router, prefix="/api/v1", tags=["Tenant Management"])
     app.include_router(remediation.router, prefix="/api/v1", tags=["Auto-Remediation"])
     app.include_router(audit.router, prefix="/api/v1", tags=["Audit Logging"])
+    app.include_router(knowledge.router, prefix="/api/v1", tags=["Knowledge Base"])
+    app.include_router(predictions.router, prefix="/api/v1", tags=["Predictive Detection"])
 except ImportError as e:
     logger.warning(f"Could not import route modules: {e}")
 
