@@ -1,0 +1,44 @@
+[
+  {
+    "timestamp": "2025-01-16T10:00:00Z",
+    "component": "database",
+    "change_type": "certificate_rotation",
+    "changed_by": "certificate-manager",
+    "before": {
+      "ssl_certificate": "database-ssl-cert-2024.pem",
+      "certificate_thumbprint": "01:23:45:67:89",
+      "expiry_date": "2025-01-20"
+    },
+    "after": {
+      "ssl_certificate": "database-ssl-cert-2025.pem",
+      "certificate_thumbprint": "a1:b2:c3:d4:e5",
+      "expiry_date": "2025-02-15"
+    },
+    "severity": "high",
+    "metadata": {
+      "rotation_id": "cert_rot_001",
+      "rotation_reason": "proactive_renewal",
+      "days_before_expiry": 5
+    }
+  },
+  {
+    "timestamp": "2025-01-16T10:30:00Z",
+    "component": "auth-service",
+    "change_type": "configuration_update",
+    "changed_by": "incident-responder",
+    "before": {
+      "database_ssl_cert": "database-ssl-cert-2024.pem",
+      "ssl_verify": true
+    },
+    "after": {
+      "database_ssl_cert": "database-ssl-cert-2025.pem",
+      "ssl_verify": true
+    },
+    "severity": "high",
+    "metadata": {
+      "config_update_id": "cfg_001",
+      "update_reason": "certificate_mismatch_fix",
+      "requires_restart": true
+    }
+  }
+]

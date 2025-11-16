@@ -1,0 +1,45 @@
+{
+  "incident_id": "auth_failure_001",
+  "name": "Authentication Service Database Connection Failure",
+  "description": "Synthetic incident demonstrating authentication failures due to database connectivity issues",
+  "category": "service-availability",
+  "severity": "critical",
+  "created_at": "2025-01-16T10:15:00Z",
+  "timeline": {
+    "t0_baseline": "2025-01-16T09:00:00Z",
+    "t1_cert_rotation": "2025-01-16T10:00:00Z",
+    "t2_symptom_onset": "2025-01-16T10:15:00Z",
+    "t3_detection": "2025-01-16T10:17:00Z",
+    "t4_investigation": "2025-01-16T10:20:00Z",
+    "t5_remediation": "2025-01-16T10:30:00Z",
+    "t6_resolution": "2025-01-16T10:35:00Z"
+  },
+  "root_cause": {
+    "type": "configuration_error",
+    "component": "auth-service",
+    "description": "Database SSL certificate mismatch after rotation",
+    "confidence": 0.95
+  },
+  "affected_services": [
+    "auth-service",
+    "api-gateway",
+    "database"
+  ],
+  "data_files": {
+    "logs": "logs.json",
+    "metrics": "metrics.json",
+    "config_changes": "config_changes.json"
+  },
+  "expected_findings": [
+    "Certificate rotation correlation",
+    "SSL/TLS connection errors",
+    "Authentication failure spike",
+    "Database connection failures"
+  ],
+  "learning_objectives": [
+    "Certificate management best practices",
+    "Database connection troubleshooting",
+    "Authentication system dependencies",
+    "Security configuration validation"
+  ]
+}

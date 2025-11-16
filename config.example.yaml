@@ -1,0 +1,85 @@
+# ADAPT Framework Configuration Example
+# Copy this file to config.yaml and customize for your environment
+
+# Execution mode: sequential, parallel, or adaptive
+execution_mode: adaptive
+
+# Minimum confidence threshold for promoting findings to root causes
+confidence_threshold: 0.7
+
+# Enable remediation plan generation
+enable_remediation_planning: true
+
+# Maximum number of agents to run concurrently (for parallel/adaptive modes)
+max_concurrent_agents: 5
+
+# Output format: json, markdown, or both
+output_format: both
+
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level: INFO
+
+# Directory containing playbooks
+playbook_dir: playbooks
+
+# Agent-specific configuration
+agent_config:
+  log_analyzer:
+    focus_areas:
+      - "timeout errors"
+      - "connection errors"
+      - "authentication failures"
+
+  metric_analyzer:
+    # Z-score threshold for anomaly detection (default: 2.0)
+    anomaly_threshold: 2.0
+    metrics_of_interest:
+      - "http_request_latency_ms"
+      - "cpu_usage_percent"
+      - "memory_usage_percent"
+      - "error_rate_percent"
+
+  topology_explainer:
+    # Optional: provide custom topology map
+    # topology_map: path/to/topology.yaml
+
+  change_correlator:
+    # Time window (in minutes) to correlate changes with symptoms
+    correlation_window_minutes: 30
+    focus_components:
+      - "api-gateway"
+      - "database"
+      - "auth-service"
+
+  remediation_planner:
+    # Custom remediation templates (optional)
+    # remediation_templates: path/to/templates.yaml
+
+# Connector configuration
+connector_config:
+  synthetic:
+    endpoint: examples/synthetic-incidents
+    batch_size: 100
+
+  # Example: Prometheus connector (requires prometheus-client)
+  # prometheus:
+  #   endpoint: http://prometheus.example.com:9090
+  #   credentials:
+  #     type: basic
+  #     username: user
+  #     password: pass
+
+  # Example: Elasticsearch connector (requires elasticsearch)
+  # elasticsearch:
+  #   endpoint: https://elasticsearch.example.com:9200
+  #   credentials:
+  #     api_key: your-api-key
+  #   filters:
+  #     indices: ["logs-*"]
+
+  # Example: CloudWatch connector (requires boto3)
+  # cloudwatch:
+  #   endpoint: us-west-2
+  #   credentials:
+  #     aws_access_key_id: YOUR_KEY
+  #     aws_secret_access_key: YOUR_SECRET

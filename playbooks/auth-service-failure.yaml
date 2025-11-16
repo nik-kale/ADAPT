@@ -1,0 +1,222 @@
+name: "Authentication Service Failure"
+description: "Playbook for diagnosing authentication and authorization failures"
+version: "1.0"
+category: "service-availability"
+
+metadata:
+  severity: "critical"
+  expected_duration: "15-30 minutes"
+  author: "ADAPT Team"
+  last_updated: "2025-01-15"
+
+triggers:
+  - type: "metric_threshold"
+    metric: "auth_failure_rate_percent"
+    condition: "> 10%"
+    duration: "2 minutes"
+  - type: "alert"
+    alert_name: "AuthServiceDown"
+  - type: "log_pattern"
+    pattern: "authentication.*failed"
+    count: "> 50"
+    window: "5 minutes"
+
+initial_symptoms:
+  - "Users unable to login"
+  - "Authentication requests failing"
+  - "Token validation errors"
+  - "Session management issues"
+
+agent_configuration:
+  execution_mode: "parallel"
+  agents:
+    - name: "log_analyzer"
+      enabled: true
+      priority: 1
+      config:
+        focus_areas:
+          - "authentication errors"
+          - "token validation failures"
+          - "connection to auth database"
+          - "external auth provider errors"
+
+    - name: "metric_analyzer"
+      enabled: true
+      priority: 1
+      config:
+        metrics_of_interest:
+          - "auth_success_rate_percent"
+          - "auth_failure_rate_percent"
+          - "auth_service_latency_ms"
+          - "token_validation_time_ms"
+          - "auth_database_connections"
+
+    - name: "topology_explainer"
+      enabled: true
+      priority: 1
+      config:
+        focus_services:
+          - "auth-service"
+          - "database"
+          - "cache-layer"
+          - "api-gateway"
+
+    - name: "change_correlator"
+      enabled: true
+      priority: 2
+      config:
+        correlation_window_minutes: 20
+        focus_components:
+          - "auth-service"
+          - "security"
+          - "certificates"
+          - "secrets-management"
+
+    - name: "remediation_planner"
+      enabled: true
+      priority: 3
+
+common_root_causes:
+  - cause: "Auth service crashed or unhealthy"
+    probability: 0.30
+    indicators:
+      - "Service health check failing"
+      - "No response from auth endpoints"
+      - "Container/pod restarts"
+
+  - cause: "Database connectivity issues"
+    probability: 0.25
+    indicators:
+      - "Database connection errors"
+      - "Connection pool exhausted"
+      - "Database timeout errors"
+
+  - cause: "Certificate or secrets expiration"
+    probability: 0.20
+    indicators:
+      - "SSL/TLS errors"
+      - "Invalid signature errors"
+      - "Secret not found errors"
+
+  - cause: "Configuration error after deployment"
+    probability: 0.15
+    indicators:
+      - "Recent deployment"
+      - "Environment variable errors"
+      - "Invalid configuration values"
+
+  - cause: "External auth provider failure"
+    probability: 0.10
+    indicators:
+      - "OAuth provider timeouts"
+      - "SAML assertion failures"
+      - "Third-party auth API errors"
+
+investigation_steps:
+  - step: 1
+    action: "Verify auth service health"
+    commands:
+      - "Check service health endpoints"
+      - "Verify service is running"
+      - "Check recent restarts or crashes"
+
+  - step: 2
+    action: "Check authentication flow"
+    commands:
+      - "Test login endpoint directly"
+      - "Verify token generation"
+      - "Check token validation"
+
+  - step: 3
+    action: "Verify database connectivity"
+    commands:
+      - "Check database connection status"
+      - "Test database queries"
+      - "Review connection pool metrics"
+
+  - step: 4
+    action: "Check certificates and secrets"
+    commands:
+      - "Verify SSL/TLS certificates"
+      - "Check signing keys"
+      - "Validate secrets rotation"
+
+  - step: 5
+    action: "Review recent changes"
+    commands:
+      - "Check recent deployments"
+      - "Review configuration changes"
+      - "Check infrastructure changes"
+
+remediation_strategies:
+  - strategy: "Service recovery"
+    actions:
+      - "Restart auth service"
+      - "Scale up auth service instances"
+      - "Check and fix health check configuration"
+    risk: "low"
+    estimated_time: "5 minutes"
+
+  - strategy: "Database recovery"
+    actions:
+      - "Reset database connection pools"
+      - "Verify database credentials"
+      - "Check database server health"
+    risk: "medium"
+    estimated_time: "10 minutes"
+
+  - strategy: "Certificate renewal"
+    actions:
+      - "Renew expired certificates"
+      - "Update certificate references"
+      - "Restart services with new certificates"
+    risk: "medium"
+    estimated_time: "15 minutes"
+
+  - strategy: "Configuration rollback"
+    actions:
+      - "Rollback to previous configuration"
+      - "Revert recent deployment"
+    risk: "medium"
+    estimated_time: "10 minutes"
+
+escalation_criteria:
+  - condition: "No improvement after 15 minutes"
+    action: "Escalate to security team"
+
+  - condition: "Data breach suspected"
+    action: "Immediate escalation to security incident response team"
+
+  - condition: "External auth provider down"
+    action: "Enable fallback authentication mechanism"
+
+success_criteria:
+  - metric: "auth_success_rate_percent"
+    target: "> 99%"
+    validation_duration: "10 minutes"
+
+  - metric: "auth_service_latency_ms"
+    target: "p95 < 200"
+    validation_duration: "10 minutes"
+
+  - check: "Users can successfully login"
+    validation: "Manual test from multiple regions"
+
+communication_template:
+  initial:
+    subject: "INCIDENT: Authentication Service Issues"
+    message: "We are experiencing authentication issues. Users may be unable to login. Investigation in progress."
+
+  update:
+    subject: "UPDATE: Authentication Service Issues"
+    message: "Root cause identified: {root_cause}. Remediation in progress. ETA: {eta}."
+
+  resolution:
+    subject: "RESOLVED: Authentication Service Issues"
+    message: "Authentication service has been restored. All systems operational."
+
+tags:
+  - "authentication"
+  - "security"
+  - "critical"
+  - "user-facing"

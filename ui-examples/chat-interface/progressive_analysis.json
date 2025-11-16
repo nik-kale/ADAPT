@@ -1,0 +1,110 @@
+{
+  "conversation_id": "conv_12346",
+  "type": "progressive_rca_updates",
+  "description": "Example of streaming RCA updates in a chat interface",
+  "messages": [
+    {
+      "message_id": "msg_001",
+      "timestamp": "2025-01-15T14:05:00Z",
+      "type": "analysis_started",
+      "content": {
+        "text": "I've started analyzing the incident. Let me gather information from logs, metrics, and recent changes...",
+        "status": "initializing",
+        "progress": 0
+      }
+    },
+    {
+      "message_id": "msg_002",
+      "timestamp": "2025-01-15T14:05:05Z",
+      "type": "agent_update",
+      "content": {
+        "text": "📊 **Log Analysis Complete**\n\nI found 47 error logs in the last 30 minutes. Key findings:\n- 85% of errors are \"connection timeout\" errors\n- First error appeared at 14:00 UTC\n- Errors primarily from `order-service` and `api-gateway`",
+        "agent": "log_analyzer",
+        "status": "completed",
+        "progress": 20,
+        "findings_count": 3,
+        "confidence": 0.75
+      }
+    },
+    {
+      "message_id": "msg_003",
+      "timestamp": "2025-01-15T14:05:12Z",
+      "type": "agent_update",
+      "content": {
+        "text": "📈 **Metric Analysis Complete**\n\nI detected anomalies in these metrics:\n- API latency spiked to 1500ms (baseline: 200ms)\n- Database query time increased 50x\n- Connection pool utilization hit 100%\n\nThis suggests a database performance issue.",
+        "agent": "metric_analyzer",
+        "status": "completed",
+        "progress": 40,
+        "findings_count": 4,
+        "confidence": 0.85
+      }
+    },
+    {
+      "message_id": "msg_004",
+      "timestamp": "2025-01-15T14:05:18Z",
+      "type": "agent_update",
+      "content": {
+        "text": "🔄 **Change Analysis Complete**\n\n⚠️ **Important**: I found a deployment 15 minutes before the incident:\n- `order-service` v2.3.1 deployed at 13:45 UTC\n- This timing strongly correlates with symptom onset\n- Deployment included database query changes\n\nThis is likely related to the root cause.",
+        "agent": "change_correlator",
+        "status": "completed",
+        "progress": 60,
+        "findings_count": 2,
+        "confidence": 0.90,
+        "highlight": true
+      }
+    },
+    {
+      "message_id": "msg_005",
+      "timestamp": "2025-01-15T14:05:25Z",
+      "type": "hypothesis_formed",
+      "content": {
+        "text": "🔍 **Working Hypothesis**\n\nBased on the evidence so far, I believe:\n\n**Root Cause**: The v2.3.1 deployment introduced a database query performance regression\n\n**Confidence**: 88%\n\n**Supporting Evidence**:\n1. Deployment timing matches symptom onset\n2. Database query time increased dramatically\n3. Connection pool exhaustion indicates query flood\n4. Code changes included query modifications\n\nLet me verify this hypothesis...",
+        "hypothesis_id": "hyp_001",
+        "confidence": 0.88,
+        "status": "investigating",
+        "progress": 75
+      }
+    },
+    {
+      "message_id": "msg_006",
+      "timestamp": "2025-01-15T14:05:32Z",
+      "type": "root_cause_identified",
+      "content": {
+        "text": "✅ **Root Cause Confirmed**\n\n**Finding**: N+1 query pattern in order-service v2.3.1\n\nThe deployment removed a JOIN optimization, causing the service to execute 50+ individual database queries per request instead of a single optimized query.\n\n**Evidence**:\n- Slow query logs show repetitive SELECT statements\n- Query count increased 50x after deployment\n- Code diff confirms JOIN removal\n\n**Confidence**: 92%",
+        "root_cause_id": "rc_001",
+        "confidence": 0.92,
+        "status": "confirmed",
+        "progress": 90
+      }
+    },
+    {
+      "message_id": "msg_007",
+      "timestamp": "2025-01-15T14:05:40Z",
+      "type": "remediation_ready",
+      "content": {
+        "text": "🔧 **Remediation Plan Ready**\n\nI've prepared a remediation plan with 3 actions:\n\n**Immediate Action** (5 min):\n1. Rollback to order-service v2.3.0\n\n**Short-term** (10 min):\n2. Increase database connection pool\n\n**Follow-up** (30 min):\n3. Deploy v2.3.2 with fix and tests\n\nWould you like me to proceed with the rollback?",
+        "remediation_plan_id": "plan_001",
+        "status": "ready",
+        "progress": 100,
+        "actions_count": 3,
+        "quick_actions": [
+          {
+            "label": "Execute Rollback",
+            "action_id": "rollback",
+            "risk": "low"
+          },
+          {
+            "label": "View Full Plan",
+            "action_id": "view_plan"
+          }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "total_analysis_time_seconds": 40,
+    "total_messages": 7,
+    "final_confidence": 0.92,
+    "agents_used": ["log_analyzer", "metric_analyzer", "change_correlator", "topology_explainer", "remediation_planner"]
+  }
+}

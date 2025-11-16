@@ -1,0 +1,46 @@
+{
+  "incident_id": "latency_regression_001",
+  "name": "API Latency Regression After Deployment",
+  "description": "Synthetic incident demonstrating latency regression caused by N+1 query pattern",
+  "category": "performance",
+  "severity": "high",
+  "created_at": "2025-01-15T13:45:00Z",
+  "timeline": {
+    "t0_baseline": "2025-01-15T13:00:00Z",
+    "t1_deployment": "2025-01-15T13:45:00Z",
+    "t2_symptom_onset": "2025-01-15T14:00:00Z",
+    "t3_detection": "2025-01-15T14:05:00Z",
+    "t4_investigation": "2025-01-15T14:10:00Z",
+    "t5_remediation": "2025-01-15T14:30:00Z",
+    "t6_resolution": "2025-01-15T14:45:00Z"
+  },
+  "root_cause": {
+    "type": "code_regression",
+    "component": "order-service",
+    "description": "N+1 query pattern introduced in v2.3.1",
+    "confidence": 0.92
+  },
+  "affected_services": [
+    "api-gateway",
+    "order-service",
+    "database"
+  ],
+  "data_files": {
+    "logs": "logs.json",
+    "metrics": "metrics.json",
+    "config_changes": "config_changes.json",
+    "traces": "traces.json"
+  },
+  "expected_findings": [
+    "Deployment correlation with symptom onset",
+    "Database query count spike",
+    "Connection pool exhaustion",
+    "Latency increase in order service"
+  ],
+  "learning_objectives": [
+    "Correlating deployments with incidents",
+    "Identifying N+1 query patterns",
+    "Database performance analysis",
+    "Change rollback procedures"
+  ]
+}

@@ -1,0 +1,148 @@
+[
+  {
+    "timestamp": "2025-01-15T13:50:00Z",
+    "level": "info",
+    "message": "Deployment of order-service v2.3.1 completed successfully",
+    "logger": "deployment-service",
+    "metadata": {
+      "deployment_id": "dep_12345",
+      "version": "v2.3.1",
+      "previous_version": "v2.3.0"
+    }
+  },
+  {
+    "timestamp": "2025-01-15T14:00:15Z",
+    "level": "warn",
+    "message": "Request processing time exceeded 1000ms: GET /api/orders/123",
+    "logger": "api-gateway",
+    "metadata": {
+      "endpoint": "/api/orders/123",
+      "method": "GET",
+      "duration_ms": 1250,
+      "user_id": "user_001"
+    }
+  },
+  {
+    "timestamp": "2025-01-15T14:00:30Z",
+    "level": "error",
+    "message": "Database connection timeout after 5000ms",
+    "logger": "order-service",
+    "metadata": {
+      "operation": "fetchOrderDetails",
+      "timeout_ms": 5000,
+      "pool_status": "exhausted"
+    }
+  },
+  {
+    "timestamp": "2025-01-15T14:00:45Z",
+    "level": "warn",
+    "message": "Database connection pool at 95% capacity: 95/100 connections in use",
+    "logger": "order-service",
+    "metadata": {
+      "pool_size": 100,
+      "active_connections": 95,
+      "idle_connections": 5
+    }
+  },
+  {
+    "timestamp": "2025-01-15T14:01:00Z",
+    "level": "error",
+    "message": "Request timeout: GET /api/orders/456 exceeded 10000ms",
+    "logger": "api-gateway",
+    "metadata": {
+      "endpoint": "/api/orders/456",
+      "method": "GET",
+      "timeout_ms": 10000
+    }
+  },
+  {
+    "timestamp": "2025-01-15T14:01:15Z",
+    "level": "warn",
+    "message": "Slow query detected: SELECT * FROM order_items WHERE order_id = ? (execution time: 850ms)",
+    "logger": "database",
+    "metadata": {
+      "query_type": "SELECT",
+      "table": "order_items",
+      "execution_time_ms": 850,
+      "rows_returned": 1
+    }
+  },
+  {
+    "timestamp": "2025-01-15T14:01:30Z",
+    "level": "error",
+    "message": "Database connection pool exhausted: all 100 connections in use",
+    "logger": "order-service",
+    "metadata": {
+      "pool_size": 100,
+      "active_connections": 100,
+      "idle_connections": 0,
+      "waiting_requests": 15
+    }
+  },
+  {
+    "timestamp": "2025-01-15T14:01:45Z",
+    "level": "warn",
+    "message": "High number of database queries per request: 52 queries for GET /api/orders/789",
+    "logger": "order-service",
+    "metadata": {
+      "endpoint": "/api/orders/789",
+      "query_count": 52,
+      "total_query_time_ms": 2600
+    }
+  },
+  {
+    "timestamp": "2025-01-15T14:02:00Z",
+    "level": "error",
+    "message": "HTTP 503 Service Unavailable: order-service not responding",
+    "logger": "api-gateway",
+    "metadata": {
+      "target_service": "order-service",
+      "status_code": 503,
+      "retry_attempts": 3
+    }
+  },
+  {
+    "timestamp": "2025-01-15T14:02:15Z",
+    "level": "warn",
+    "message": "Request queue building up: 25 requests waiting",
+    "logger": "order-service",
+    "metadata": {
+      "queue_length": 25,
+      "processing_rate": "0.5 req/sec",
+      "normal_rate": "10 req/sec"
+    }
+  },
+  {
+    "timestamp": "2025-01-15T14:30:00Z",
+    "level": "info",
+    "message": "Rolling back order-service to v2.3.0",
+    "logger": "deployment-service",
+    "metadata": {
+      "deployment_id": "dep_12346",
+      "version": "v2.3.0",
+      "previous_version": "v2.3.1",
+      "reason": "performance_regression"
+    }
+  },
+  {
+    "timestamp": "2025-01-15T14:32:00Z",
+    "level": "info",
+    "message": "Rollback of order-service to v2.3.0 completed successfully",
+    "logger": "deployment-service",
+    "metadata": {
+      "deployment_id": "dep_12346",
+      "version": "v2.3.0"
+    }
+  },
+  {
+    "timestamp": "2025-01-15T14:35:00Z",
+    "level": "info",
+    "message": "Request processing time back to normal: GET /api/orders/999 completed in 180ms",
+    "logger": "api-gateway",
+    "metadata": {
+      "endpoint": "/api/orders/999",
+      "method": "GET",
+      "duration_ms": 180
+    }
+  }
+]

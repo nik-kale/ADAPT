@@ -1,0 +1,132 @@
+[
+  {
+    "timestamp": "2025-01-16T10:00:00Z",
+    "level": "info",
+    "message": "Certificate rotation initiated for database SSL certificates",
+    "logger": "certificate-manager",
+    "metadata": {
+      "rotation_id": "cert_rot_001",
+      "certificate_type": "database-ssl",
+      "expiry_date": "2025-02-15"
+    }
+  },
+  {
+    "timestamp": "2025-01-16T10:05:00Z",
+    "level": "info",
+    "message": "Certificate rotation completed successfully",
+    "logger": "certificate-manager",
+    "metadata": {
+      "rotation_id": "cert_rot_001",
+      "new_certificate_thumbprint": "a1:b2:c3:d4:e5"
+    }
+  },
+  {
+    "timestamp": "2025-01-16T10:15:30Z",
+    "level": "error",
+    "message": "SSL certificate verification failed: certificate verify failed",
+    "logger": "auth-service",
+    "metadata": {
+      "operation": "database_connect",
+      "error_code": "SSL_ERROR_BAD_CERT_DOMAIN",
+      "certificate_thumbprint": "old_cert"
+    }
+  },
+  {
+    "timestamp": "2025-01-16T10:15:45Z",
+    "level": "fatal",
+    "message": "Failed to connect to database after 5 retry attempts",
+    "logger": "auth-service",
+    "metadata": {
+      "database_host": "auth-db.internal",
+      "retry_count": 5,
+      "last_error": "SSL certificate verification failed"
+    }
+  },
+  {
+    "timestamp": "2025-01-16T10:16:00Z",
+    "level": "error",
+    "message": "Authentication failed: unable to validate user credentials",
+    "logger": "auth-service",
+    "metadata": {
+      "user_id": "user_123",
+      "reason": "database_unavailable",
+      "endpoint": "/auth/login"
+    }
+  },
+  {
+    "timestamp": "2025-01-16T10:16:15Z",
+    "level": "error",
+    "message": "HTTP 500 Internal Server Error: POST /auth/login",
+    "logger": "api-gateway",
+    "metadata": {
+      "endpoint": "/auth/login",
+      "method": "POST",
+      "upstream_service": "auth-service",
+      "upstream_error": "database_connection_failed"
+    }
+  },
+  {
+    "timestamp": "2025-01-16T10:16:30Z",
+    "level": "critical",
+    "message": "Health check failed: database connection unavailable",
+    "logger": "auth-service",
+    "metadata": {
+      "health_check": "database_connectivity",
+      "status": "unhealthy",
+      "consecutive_failures": 3
+    }
+  },
+  {
+    "timestamp": "2025-01-16T10:17:00Z",
+    "level": "error",
+    "message": "Authentication failure rate exceeded threshold: 95% of requests failing",
+    "logger": "monitoring-system",
+    "metadata": {
+      "failure_rate": 0.95,
+      "threshold": 0.10,
+      "sample_size": 100
+    }
+  },
+  {
+    "timestamp": "2025-01-16T10:30:00Z",
+    "level": "info",
+    "message": "Updating auth-service configuration with new database certificate",
+    "logger": "deployment-service",
+    "metadata": {
+      "config_update_id": "cfg_001",
+      "certificate_thumbprint": "a1:b2:c3:d4:e5"
+    }
+  },
+  {
+    "timestamp": "2025-01-16T10:32:00Z",
+    "level": "info",
+    "message": "Restarting auth-service to apply new configuration",
+    "logger": "deployment-service",
+    "metadata": {
+      "restart_reason": "config_update",
+      "graceful_shutdown": true
+    }
+  },
+  {
+    "timestamp": "2025-01-16T10:33:00Z",
+    "level": "info",
+    "message": "Database connection established successfully",
+    "logger": "auth-service",
+    "metadata": {
+      "database_host": "auth-db.internal",
+      "ssl_enabled": true,
+      "certificate_valid": true
+    }
+  },
+  {
+    "timestamp": "2025-01-16T10:34:00Z",
+    "level": "info",
+    "message": "Authentication request processed successfully: POST /auth/login",
+    "logger": "auth-service",
+    "metadata": {
+      "user_id": "user_456",
+      "duration_ms": 45,
+      "token_issued": true
+    }
+  }
+]

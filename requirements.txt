@@ -1,0 +1,45 @@
+# ADAPT Framework Dependencies
+
+# Core dependencies
+pyyaml>=6.0.1
+python-dateutil>=2.8.2
+
+# Async support (built-in for Python 3.9+, but including for completeness)
+# No external async dependencies needed - using asyncio from stdlib
+
+# Optional dependencies for enhanced functionality
+# (Commented out by default - uncomment as needed)
+
+# Data analysis and statistics
+# numpy>=1.24.0
+# scipy>=1.10.0
+# pandas>=2.0.0
+
+# Time series analysis
+# prophet>=1.1.0
+# statsmodels>=0.14.0
+
+# LLM integration (for future releases)
+# openai>=1.0.0
+# anthropic>=0.7.0
+
+# Visualization
+# matplotlib>=3.7.0
+# networkx>=3.1
+
+# Additional connectors
+# prometheus-client>=0.17.0
+# elasticsearch>=8.0.0
+# boto3>=1.28.0  # For AWS CloudWatch
+
+# Development dependencies
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+black>=23.7.0
+mypy>=1.4.0
+ruff>=0.0.280
+
+# Documentation
+# sphinx>=7.0.0
+# sphinx-rtd-theme>=1.2.0

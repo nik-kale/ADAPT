@@ -1,0 +1,96 @@
+[
+  {
+    "timestamp": "2025-01-16T10:10:00Z",
+    "name": "auth_success_rate_percent",
+    "value": 99.5,
+    "unit": "percent",
+    "tags": {"service": "auth-service"}
+  },
+  {
+    "timestamp": "2025-01-16T10:10:00Z",
+    "name": "auth_service_latency_ms",
+    "value": 45,
+    "unit": "ms",
+    "tags": {"service": "auth-service", "percentile": "p95"}
+  },
+  {
+    "timestamp": "2025-01-16T10:10:00Z",
+    "name": "database_connections",
+    "value": 12,
+    "unit": "count",
+    "tags": {"service": "auth-service", "status": "active"}
+  },
+  {
+    "timestamp": "2025-01-16T10:16:00Z",
+    "name": "auth_success_rate_percent",
+    "value": 15.0,
+    "unit": "percent",
+    "tags": {"service": "auth-service"},
+    "threshold": {"critical": 90}
+  },
+  {
+    "timestamp": "2025-01-16T10:16:00Z",
+    "name": "auth_failure_rate_percent",
+    "value": 85.0,
+    "unit": "percent",
+    "tags": {"service": "auth-service"},
+    "threshold": {"warning": 5, "critical": 10}
+  },
+  {
+    "timestamp": "2025-01-16T10:16:00Z",
+    "name": "database_connections",
+    "value": 0,
+    "unit": "count",
+    "tags": {"service": "auth-service", "status": "active"}
+  },
+  {
+    "timestamp": "2025-01-16T10:16:00Z",
+    "name": "database_connection_errors",
+    "value": 47,
+    "unit": "count",
+    "tags": {"service": "auth-service", "error_type": "ssl_verification"}
+  },
+  {
+    "timestamp": "2025-01-16T10:17:00Z",
+    "name": "auth_failure_rate_percent",
+    "value": 95.0,
+    "unit": "percent",
+    "tags": {"service": "auth-service"},
+    "threshold": {"warning": 5, "critical": 10}
+  },
+  {
+    "timestamp": "2025-01-16T10:17:00Z",
+    "name": "http_5xx_errors",
+    "value": 156,
+    "unit": "count",
+    "tags": {"service": "api-gateway", "endpoint": "/auth/login"}
+  },
+  {
+    "timestamp": "2025-01-16T10:34:00Z",
+    "name": "auth_success_rate_percent",
+    "value": 99.8,
+    "unit": "percent",
+    "tags": {"service": "auth-service"}
+  },
+  {
+    "timestamp": "2025-01-16T10:34:00Z",
+    "name": "auth_service_latency_ms",
+    "value": 42,
+    "unit": "ms",
+    "tags": {"service": "auth-service", "percentile": "p95"}
+  },
+  {
+    "timestamp": "2025-01-16T10:34:00Z",
+    "name": "database_connections",
+    "value": 15,
+    "unit": "count",
+    "tags": {"service": "auth-service", "status": "active"}
+  },
+  {
+    "timestamp": "2025-01-16T10:34:00Z",
+    "name": "auth_failure_rate_percent",
+    "value": 0.2,
+    "unit": "percent",
+    "tags": {"service": "auth-service"}
+  }
+]

@@ -1,0 +1,156 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adapt-framework"
+version = "1.0.0"
+description = "Agentic Diagnostics & Proactive Troubleshooting Framework for AI-driven root cause analysis"
+readme = "README.md"
+authors = [
+    {name = "ADAPT Team", email = "adapt-framework@example.com"}
+]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Systems Administration",
+    "Typing :: Typed",
+]
+keywords = [
+    "rca",
+    "root-cause-analysis",
+    "incident-management",
+    "observability",
+    "troubleshooting",
+    "diagnostics",
+    "sre",
+    "devops",
+    "ai",
+    "agents",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "pyyaml>=6.0.1",
+    "python-dateutil>=2.8.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.7.0",
+    "mypy>=1.4.0",
+    "ruff>=0.0.280",
+]
+analytics = [
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "pandas>=2.0.0",
+    "statsmodels>=0.14.0",
+]
+connectors = [
+    "prometheus-client>=0.17.0",
+    "elasticsearch>=8.0.0",
+    "boto3>=1.28.0",
+]
+llm = [
+    "openai>=1.0.0",
+    "anthropic>=0.7.0",
+]
+viz = [
+    "matplotlib>=3.7.0",
+    "networkx>=3.1",
+]
+all = [
+    "adapt-framework[dev,analytics,connectors,llm,viz]",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/ADAPT"
+Documentation = "https://adapt-framework.readthedocs.io"
+Repository = "https://github.com/yourusername/ADAPT"
+"Bug Tracker" = "https://github.com/yourusername/ADAPT/issues"
+
+[tool.setuptools]
+packages = ["core", "agents", "connectors"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39', 'py310', 'py311']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | \.tox
+  | build
+  | dist
+  | __pycache__
+)/
+'''
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = "yaml.*"
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+]
+ignore = [
+    "E501",  # line too long (handled by black)
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["core", "agents", "connectors"]
+omit = ["*/tests/*", "*/test_*.py"]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false

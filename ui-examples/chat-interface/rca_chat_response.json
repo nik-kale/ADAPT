@@ -1,0 +1,155 @@
+{
+  "conversation_id": "conv_12345",
+  "message_id": "msg_67890",
+  "timestamp": "2025-01-15T14:30:00Z",
+  "type": "rca_analysis_complete",
+  "content": {
+    "summary": {
+      "incident_id": "inc_2025_01_15_001",
+      "title": "API Latency Spike",
+      "status": "root_cause_identified",
+      "severity": "high",
+      "duration_minutes": 45,
+      "affected_services": ["api-gateway", "order-service", "database"]
+    },
+    "narrative": {
+      "sections": [
+        {
+          "heading": "What Happened",
+          "content": "At 14:00 UTC, we detected a significant increase in API response latency. The p95 latency jumped from 200ms to 1500ms, affecting approximately 15% of user requests.",
+          "confidence": 0.95
+        },
+        {
+          "heading": "Root Cause",
+          "content": "A database query performance regression was introduced in the deployment at 13:45 UTC. A new N+1 query pattern in the order service was executing 50+ individual queries per request instead of using a single JOIN.",
+          "confidence": 0.90,
+          "evidence": [
+            "Deployment timestamp: 13:45 UTC (15 minutes before symptom onset)",
+            "Database query count increased 50x",
+            "Slow query logs show repetitive SELECT statements",
+            "Code diff shows removal of JOIN optimization"
+          ]
+        },
+        {
+          "heading": "Contributing Factors",
+          "content": "Database connection pool was undersized for the increased query load, leading to connection exhaustion and further delays.",
+          "confidence": 0.75
+        }
+      ]
+    },
+    "timeline": [
+      {
+        "timestamp": "2025-01-15T13:45:00Z",
+        "event": "Deployment of order-service v2.3.1",
+        "type": "change",
+        "significance": "high"
+      },
+      {
+        "timestamp": "2025-01-15T14:00:00Z",
+        "event": "First latency spike detected",
+        "type": "symptom",
+        "significance": "critical"
+      },
+      {
+        "timestamp": "2025-01-15T14:02:00Z",
+        "event": "Database connection pool exhaustion",
+        "type": "symptom",
+        "significance": "high"
+      },
+      {
+        "timestamp": "2025-01-15T14:05:00Z",
+        "event": "RCA analysis initiated",
+        "type": "action",
+        "significance": "medium"
+      },
+      {
+        "timestamp": "2025-01-15T14:15:00Z",
+        "event": "Root cause identified",
+        "type": "finding",
+        "significance": "critical"
+      }
+    ],
+    "remediation_plan": {
+      "recommended_actions": [
+        {
+          "priority": 1,
+          "title": "Rollback deployment",
+          "description": "Rollback order-service to v2.3.0 to restore query optimization",
+          "risk": "low",
+          "estimated_time": "5 minutes",
+          "steps": [
+            "kubectl rollout undo deployment/order-service",
+            "Verify rollback completed",
+            "Monitor latency metrics"
+          ]
+        },
+        {
+          "priority": 2,
+          "title": "Increase database connection pool",
+          "description": "Temporarily increase connection pool size to handle load",
+          "risk": "low",
+          "estimated_time": "10 minutes",
+          "steps": [
+            "Update connection pool max_connections to 100",
+            "Restart order-service instances",
+            "Monitor connection pool metrics"
+          ]
+        },
+        {
+          "priority": 3,
+          "title": "Fix N+1 query in v2.3.2",
+          "description": "Create hotfix with proper JOIN optimization",
+          "risk": "medium",
+          "estimated_time": "30 minutes",
+          "steps": [
+            "Restore JOIN optimization in code",
+            "Add test to prevent regression",
+            "Deploy v2.3.2 with fix"
+          ]
+        }
+      ],
+      "estimated_total_time": "45 minutes",
+      "rollback_available": true
+    },
+    "confidence_breakdown": {
+      "overall_confidence": 0.88,
+      "factors": {
+        "log_analysis": 0.85,
+        "metric_correlation": 0.92,
+        "change_correlation": 0.95,
+        "topology_analysis": 0.80
+      }
+    },
+    "interactive_elements": [
+      {
+        "type": "quick_action",
+        "label": "Execute Rollback",
+        "action_id": "rollback_deployment",
+        "confirmation_required": true
+      },
+      {
+        "type": "view_details",
+        "label": "View Full RCA Graph",
+        "link": "/rca/inc_2025_01_15_001/graph"
+      },
+      {
+        "type": "export",
+        "label": "Export Incident Report",
+        "formats": ["pdf", "markdown", "json"]
+      }
+    ],
+    "metadata": {
+      "analysis_duration_seconds": 35,
+      "agents_executed": 5,
+      "signals_analyzed": 1247,
+      "findings_count": 8,
+      "hypotheses_tested": 12
+    }
+  },
+  "display_format": {
+    "layout": "conversational",
+    "show_confidence_scores": true,
+    "highlight_quick_actions": true,
+    "enable_drill_down": true
+  }
+}

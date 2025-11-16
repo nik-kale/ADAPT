@@ -1,0 +1,298 @@
+{
+  "widget_type": "rca_graph_visualization",
+  "widget_id": "rca_graph_001",
+  "title": "RCA Causal Graph",
+  "description": "Interactive visualization of the RCA causal graph",
+  "layout": {
+    "width": "full",
+    "height": "large",
+    "position": "center"
+  },
+  "graph_data": {
+    "nodes": [
+      {
+        "id": "symptom_1",
+        "type": "symptom",
+        "label": "High API Latency",
+        "description": "P95 latency increased to 1500ms",
+        "confidence": 0.95,
+        "metadata": {
+          "first_observed": "2025-01-15T14:00:00Z",
+          "severity": "high"
+        },
+        "visual": {
+          "color": "#dc3545",
+          "size": "large",
+          "icon": "⚠️"
+        }
+      },
+      {
+        "id": "symptom_2",
+        "type": "symptom",
+        "label": "Connection Pool Exhaustion",
+        "description": "Database connection pool at 100%",
+        "confidence": 0.90,
+        "metadata": {
+          "first_observed": "2025-01-15T14:02:00Z",
+          "severity": "high"
+        },
+        "visual": {
+          "color": "#fd7e14",
+          "size": "medium",
+          "icon": "🔌"
+        }
+      },
+      {
+        "id": "hypothesis_1",
+        "type": "hypothesis",
+        "label": "Database Performance Issue",
+        "description": "Database queries may be slow or excessive",
+        "confidence": 0.85,
+        "visual": {
+          "color": "#6c757d",
+          "size": "medium",
+          "icon": "❓"
+        }
+      },
+      {
+        "id": "finding_1",
+        "type": "finding",
+        "label": "50x Query Increase",
+        "description": "Query count increased from 1 to 50+ per request",
+        "confidence": 0.90,
+        "metadata": {
+          "agent": "log_analyzer"
+        },
+        "visual": {
+          "color": "#17a2b8",
+          "size": "medium",
+          "icon": "🔍"
+        }
+      },
+      {
+        "id": "finding_2",
+        "type": "finding",
+        "label": "Deployment at 13:45 UTC",
+        "description": "order-service v2.3.1 deployed",
+        "confidence": 0.90,
+        "metadata": {
+          "agent": "change_correlator"
+        },
+        "visual": {
+          "color": "#17a2b8",
+          "size": "medium",
+          "icon": "📦"
+        }
+      },
+      {
+        "id": "root_cause_1",
+        "type": "root_cause",
+        "label": "N+1 Query Pattern",
+        "description": "Deployment introduced N+1 query anti-pattern",
+        "confidence": 0.92,
+        "metadata": {
+          "component": "order-service",
+          "version": "v2.3.1"
+        },
+        "visual": {
+          "color": "#28a745",
+          "size": "large",
+          "icon": "🎯",
+          "pulse": true
+        }
+      },
+      {
+        "id": "contributing_factor_1",
+        "type": "contributing_factor",
+        "label": "Undersized Connection Pool",
+        "description": "Connection pool unable to handle increased load",
+        "confidence": 0.75,
+        "visual": {
+          "color": "#ffc107",
+          "size": "small",
+          "icon": "⚙️"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "symptom_1",
+        "target": "hypothesis_1",
+        "type": "suggests",
+        "weight": 0.8,
+        "label": "suggests",
+        "visual": {
+          "style": "dashed",
+          "color": "#6c757d"
+        }
+      },
+      {
+        "source": "symptom_2",
+        "target": "hypothesis_1",
+        "type": "suggests",
+        "weight": 0.7,
+        "label": "suggests",
+        "visual": {
+          "style": "dashed",
+          "color": "#6c757d"
+        }
+      },
+      {
+        "source": "hypothesis_1",
+        "target": "finding_1",
+        "type": "confirms",
+        "weight": 0.9,
+        "label": "confirmed by",
+        "visual": {
+          "style": "solid",
+          "color": "#17a2b8"
+        }
+      },
+      {
+        "source": "finding_1",
+        "target": "finding_2",
+        "type": "correlates_with",
+        "weight": 0.85,
+        "label": "correlates with",
+        "visual": {
+          "style": "solid",
+          "color": "#17a2b8"
+        }
+      },
+      {
+        "source": "finding_1",
+        "target": "root_cause_1",
+        "type": "confirms",
+        "weight": 0.92,
+        "label": "confirms",
+        "visual": {
+          "style": "solid",
+          "color": "#28a745",
+          "width": 3
+        }
+      },
+      {
+        "source": "finding_2",
+        "target": "root_cause_1",
+        "type": "confirms",
+        "weight": 0.90,
+        "label": "confirms",
+        "visual": {
+          "style": "solid",
+          "color": "#28a745",
+          "width": 3
+        }
+      },
+      {
+        "source": "root_cause_1",
+        "target": "symptom_1",
+        "type": "causes",
+        "weight": 0.92,
+        "label": "causes",
+        "visual": {
+          "style": "solid",
+          "color": "#dc3545",
+          "width": 3,
+          "arrow": true
+        }
+      },
+      {
+        "source": "root_cause_1",
+        "target": "symptom_2",
+        "type": "causes",
+        "weight": 0.85,
+        "label": "causes",
+        "visual": {
+          "style": "solid",
+          "color": "#fd7e14",
+          "width": 2,
+          "arrow": true
+        }
+      },
+      {
+        "source": "contributing_factor_1",
+        "target": "symptom_2",
+        "type": "contributes_to",
+        "weight": 0.75,
+        "label": "contributes to",
+        "visual": {
+          "style": "dotted",
+          "color": "#ffc107",
+          "width": 1
+        }
+      }
+    ],
+    "layout": {
+      "algorithm": "hierarchical",
+      "direction": "top-to-bottom",
+      "levels": [
+        ["symptom_1", "symptom_2"],
+        ["hypothesis_1"],
+        ["finding_1", "finding_2"],
+        ["root_cause_1", "contributing_factor_1"]
+      ]
+    }
+  },
+  "visualization_config": {
+    "node_settings": {
+      "show_labels": true,
+      "show_confidence": true,
+      "show_icons": true,
+      "enable_tooltips": true
+    },
+    "edge_settings": {
+      "show_labels": true,
+      "show_weights": false,
+      "curved": true,
+      "animated": true
+    },
+    "interaction": {
+      "enable_zoom": true,
+      "enable_pan": true,
+      "enable_node_drag": false,
+      "click_to_expand": true
+    },
+    "legend": {
+      "show": true,
+      "position": "bottom-right",
+      "items": [
+        {"type": "symptom", "label": "Symptom", "color": "#dc3545"},
+        {"type": "hypothesis", "label": "Hypothesis", "color": "#6c757d"},
+        {"type": "finding", "label": "Finding", "color": "#17a2b8"},
+        {"type": "root_cause", "label": "Root Cause", "color": "#28a745"},
+        {"type": "contributing_factor", "label": "Contributing Factor", "color": "#ffc107"}
+      ]
+    }
+  },
+  "interactions": [
+    {
+      "type": "node_click",
+      "action": "show_detail_panel",
+      "panel_content": "node_metadata"
+    },
+    {
+      "type": "edge_click",
+      "action": "highlight_path",
+      "highlight_style": "bold"
+    },
+    {
+      "type": "node_hover",
+      "action": "show_tooltip",
+      "tooltip_fields": ["description", "confidence", "metadata"]
+    }
+  ],
+  "export_options": [
+    {
+      "format": "png",
+      "label": "Export as Image"
+    },
+    {
+      "format": "svg",
+      "label": "Export as SVG"
+    },
+    {
+      "format": "json",
+      "label": "Export Graph Data"
+    }
+  ]
+}

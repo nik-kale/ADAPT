@@ -1,0 +1,126 @@
+[
+  {
+    "timestamp": "2025-01-15T13:40:00Z",
+    "name": "http_request_latency_ms",
+    "value": 195,
+    "unit": "ms",
+    "tags": {"service": "api-gateway", "endpoint": "/api/orders", "percentile": "p95"}
+  },
+  {
+    "timestamp": "2025-01-15T13:40:00Z",
+    "name": "database_query_time_ms",
+    "value": 25,
+    "unit": "ms",
+    "tags": {"service": "order-service", "operation": "fetchOrder"}
+  },
+  {
+    "timestamp": "2025-01-15T13:40:00Z",
+    "name": "database_queries_per_request",
+    "value": 1.2,
+    "unit": "count",
+    "tags": {"service": "order-service"}
+  },
+  {
+    "timestamp": "2025-01-15T14:00:00Z",
+    "name": "http_request_latency_ms",
+    "value": 650,
+    "unit": "ms",
+    "tags": {"service": "api-gateway", "endpoint": "/api/orders", "percentile": "p95"},
+    "threshold": {"warning": 500, "critical": 1000}
+  },
+  {
+    "timestamp": "2025-01-15T14:00:00Z",
+    "name": "database_query_time_ms",
+    "value": 580,
+    "unit": "ms",
+    "tags": {"service": "order-service", "operation": "fetchOrder"}
+  },
+  {
+    "timestamp": "2025-01-15T14:00:00Z",
+    "name": "database_queries_per_request",
+    "value": 48,
+    "unit": "count",
+    "tags": {"service": "order-service"}
+  },
+  {
+    "timestamp": "2025-01-15T14:01:00Z",
+    "name": "http_request_latency_ms",
+    "value": 1450,
+    "unit": "ms",
+    "tags": {"service": "api-gateway", "endpoint": "/api/orders", "percentile": "p95"},
+    "threshold": {"warning": 500, "critical": 1000}
+  },
+  {
+    "timestamp": "2025-01-15T14:01:00Z",
+    "name": "database_connection_pool_utilization_percent",
+    "value": 95,
+    "unit": "percent",
+    "tags": {"service": "order-service"},
+    "threshold": {"warning": 80, "critical": 95}
+  },
+  {
+    "timestamp": "2025-01-15T14:01:00Z",
+    "name": "error_rate_percent",
+    "value": 8.5,
+    "unit": "percent",
+    "tags": {"service": "api-gateway"}
+  },
+  {
+    "timestamp": "2025-01-15T14:02:00Z",
+    "name": "http_request_latency_ms",
+    "value": 2100,
+    "unit": "ms",
+    "tags": {"service": "api-gateway", "endpoint": "/api/orders", "percentile": "p95"},
+    "threshold": {"warning": 500, "critical": 1000}
+  },
+  {
+    "timestamp": "2025-01-15T14:02:00Z",
+    "name": "database_connection_pool_utilization_percent",
+    "value": 100,
+    "unit": "percent",
+    "tags": {"service": "order-service"},
+    "threshold": {"warning": 80, "critical": 95}
+  },
+  {
+    "timestamp": "2025-01-15T14:02:00Z",
+    "name": "error_rate_percent",
+    "value": 15.2,
+    "unit": "percent",
+    "tags": {"service": "api-gateway"}
+  },
+  {
+    "timestamp": "2025-01-15T14:02:00Z",
+    "name": "cpu_usage_percent",
+    "value": 78,
+    "unit": "percent",
+    "tags": {"service": "database"}
+  },
+  {
+    "timestamp": "2025-01-15T14:35:00Z",
+    "name": "http_request_latency_ms",
+    "value": 210,
+    "unit": "ms",
+    "tags": {"service": "api-gateway", "endpoint": "/api/orders", "percentile": "p95"}
+  },
+  {
+    "timestamp": "2025-01-15T14:35:00Z",
+    "name": "database_queries_per_request",
+    "value": 1.1,
+    "unit": "count",
+    "tags": {"service": "order-service"}
+  },
+  {
+    "timestamp": "2025-01-15T14:35:00Z",
+    "name": "database_connection_pool_utilization_percent",
+    "value": 35,
+    "unit": "percent",
+    "tags": {"service": "order-service"}
+  },
+  {
+    "timestamp": "2025-01-15T14:35:00Z",
+    "name": "error_rate_percent",
+    "value": 0.5,
+    "unit": "percent",
+    "tags": {"service": "api-gateway"}
+  }
+]

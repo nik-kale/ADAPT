@@ -1,0 +1,174 @@
+name: "API Latency Regression"
+description: "Playbook for diagnosing sudden increases in API response latency"
+version: "1.0"
+category: "performance"
+
+metadata:
+  severity: "high"
+  expected_duration: "30-60 minutes"
+  author: "ADAPT Team"
+  last_updated: "2025-01-15"
+
+triggers:
+  - type: "metric_threshold"
+    metric: "http_request_latency_ms"
+    condition: "p95 > 1000"
+    duration: "5 minutes"
+  - type: "alert"
+    alert_name: "HighLatency"
+
+initial_symptoms:
+  - "API response times increased from baseline"
+  - "User-reported slowness"
+  - "Timeout errors increasing"
+
+agent_configuration:
+  execution_mode: "adaptive"
+  agents:
+    - name: "log_analyzer"
+      enabled: true
+      priority: 1
+      config:
+        focus_areas:
+          - "timeout errors"
+          - "slow query logs"
+          - "connection errors"
+
+    - name: "metric_analyzer"
+      enabled: true
+      priority: 1
+      config:
+        metrics_of_interest:
+          - "http_request_latency_ms"
+          - "cpu_usage_percent"
+          - "memory_usage_percent"
+          - "database_query_time_ms"
+          - "cache_hit_rate_percent"
+
+    - name: "topology_explainer"
+      enabled: true
+      priority: 2
+      config:
+        focus_services:
+          - "api-gateway"
+          - "database"
+          - "cache-layer"
+
+    - name: "change_correlator"
+      enabled: true
+      priority: 2
+      config:
+        correlation_window_minutes: 30
+        focus_components:
+          - "api-gateway"
+          - "database"
+          - "backend-services"
+
+    - name: "remediation_planner"
+      enabled: true
+      priority: 3
+
+common_root_causes:
+  - cause: "Database query performance degradation"
+    probability: 0.35
+    indicators:
+      - "Database query time increased"
+      - "Connection pool exhaustion"
+      - "Slow query logs present"
+
+  - cause: "Resource exhaustion (CPU/Memory)"
+    probability: 0.25
+    indicators:
+      - "High CPU usage"
+      - "Memory pressure"
+      - "GC pauses"
+
+  - cause: "Cache invalidation or failure"
+    probability: 0.20
+    indicators:
+      - "Cache hit rate dropped"
+      - "Cache service errors"
+      - "Increased database load"
+
+  - cause: "Recent deployment with performance regression"
+    probability: 0.15
+    indicators:
+      - "Deployment within correlation window"
+      - "Code changes affecting hot path"
+      - "New N+1 query patterns"
+
+  - cause: "External dependency slowdown"
+    probability: 0.05
+    indicators:
+      - "Third-party API timeouts"
+      - "Network latency increased"
+
+investigation_steps:
+  - step: 1
+    action: "Identify symptom onset time"
+    commands:
+      - "Check metric dashboards for latency spike start time"
+      - "Review alert timeline"
+
+  - step: 2
+    action: "Correlate with recent changes"
+    commands:
+      - "Check deployment history"
+      - "Review configuration changes"
+      - "Check infrastructure changes"
+
+  - step: 3
+    action: "Analyze resource utilization"
+    commands:
+      - "Check CPU and memory metrics"
+      - "Review database connection pool status"
+      - "Analyze cache performance"
+
+  - step: 4
+    action: "Examine logs for errors"
+    commands:
+      - "Search for timeout errors"
+      - "Look for slow query warnings"
+      - "Check for connection errors"
+
+  - step: 5
+    action: "Review service dependencies"
+    commands:
+      - "Check health of dependent services"
+      - "Verify external API performance"
+
+remediation_strategies:
+  - strategy: "Quick wins"
+    actions:
+      - "Increase cache TTL temporarily"
+      - "Scale up service instances"
+      - "Restart services to clear connection pools"
+    risk: "low"
+
+  - strategy: "Database optimization"
+    actions:
+      - "Add missing indexes"
+      - "Optimize slow queries"
+      - "Increase connection pool size"
+    risk: "medium"
+
+  - strategy: "Rollback"
+    actions:
+      - "Rollback recent deployment"
+      - "Revert configuration changes"
+    risk: "medium"
+
+success_criteria:
+  - metric: "http_request_latency_ms"
+    target: "p95 < 500"
+    validation_duration: "15 minutes"
+
+  - metric: "error_rate_percent"
+    target: "< 1%"
+    validation_duration: "15 minutes"
+
+tags:
+  - "performance"
+  - "latency"
+  - "api"
+  - "user-facing"

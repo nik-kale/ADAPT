@@ -1,0 +1,178 @@
+{
+  "widget_type": "rca_summary",
+  "widget_id": "rca_summary_001",
+  "title": "Active RCA Analysis",
+  "description": "Real-time summary widget for ongoing RCA analysis",
+  "layout": {
+    "width": "full",
+    "height": "medium",
+    "position": "top"
+  },
+  "data": {
+    "incident": {
+      "id": "inc_2025_01_15_001",
+      "title": "API Latency Spike",
+      "severity": "high",
+      "status": "root_cause_identified",
+      "started_at": "2025-01-15T14:00:00Z",
+      "duration_minutes": 45
+    },
+    "analysis_progress": {
+      "status": "completed",
+      "progress_percent": 100,
+      "current_phase": "remediation_planning",
+      "phases": [
+        {
+          "name": "symptom_identification",
+          "status": "completed",
+          "duration_seconds": 5
+        },
+        {
+          "name": "diagnostic_analysis",
+          "status": "completed",
+          "duration_seconds": 25
+        },
+        {
+          "name": "root_cause_identification",
+          "status": "completed",
+          "duration_seconds": 10
+        },
+        {
+          "name": "remediation_planning",
+          "status": "completed",
+          "duration_seconds": 5
+        }
+      ]
+    },
+    "key_findings": [
+      {
+        "icon": "🎯",
+        "label": "Root Cause",
+        "value": "N+1 Query Pattern",
+        "confidence": 0.92,
+        "severity": "critical"
+      },
+      {
+        "icon": "📦",
+        "label": "Source",
+        "value": "order-service v2.3.1",
+        "confidence": 0.90,
+        "severity": "high"
+      },
+      {
+        "icon": "⏰",
+        "label": "First Symptom",
+        "value": "14:00 UTC",
+        "confidence": 0.95,
+        "severity": "medium"
+      },
+      {
+        "icon": "🔄",
+        "label": "Rollback Available",
+        "value": "Yes (v2.3.0)",
+        "confidence": 1.0,
+        "severity": "low"
+      }
+    ],
+    "affected_services": {
+      "total": 3,
+      "services": [
+        {
+          "name": "api-gateway",
+          "status": "degraded",
+          "impact": "high"
+        },
+        {
+          "name": "order-service",
+          "status": "degraded",
+          "impact": "critical"
+        },
+        {
+          "name": "database",
+          "status": "overloaded",
+          "impact": "high"
+        }
+      ]
+    },
+    "agent_results": {
+      "total": 5,
+      "completed": 5,
+      "results": [
+        {
+          "agent": "log_analyzer",
+          "status": "completed",
+          "findings": 3,
+          "confidence": 0.75
+        },
+        {
+          "agent": "metric_analyzer",
+          "status": "completed",
+          "findings": 4,
+          "confidence": 0.85
+        },
+        {
+          "agent": "topology_explainer",
+          "status": "completed",
+          "findings": 2,
+          "confidence": 0.80
+        },
+        {
+          "agent": "change_correlator",
+          "status": "completed",
+          "findings": 2,
+          "confidence": 0.90
+        },
+        {
+          "agent": "remediation_planner",
+          "status": "completed",
+          "findings": 1,
+          "confidence": 0.75
+        }
+      ]
+    },
+    "next_actions": [
+      {
+        "priority": 1,
+        "action": "Execute rollback to v2.3.0",
+        "eta": "5 minutes",
+        "risk": "low",
+        "actionable": true
+      },
+      {
+        "priority": 2,
+        "action": "Increase connection pool size",
+        "eta": "10 minutes",
+        "risk": "low",
+        "actionable": true
+      }
+    ]
+  },
+  "visual_config": {
+    "color_scheme": {
+      "critical": "#dc3545",
+      "high": "#fd7e14",
+      "medium": "#ffc107",
+      "low": "#28a745"
+    },
+    "show_confidence_bars": true,
+    "enable_drill_down": true,
+    "refresh_interval_seconds": 10
+  },
+  "interactions": [
+    {
+      "type": "click",
+      "target": "key_findings",
+      "action": "show_detailed_view"
+    },
+    {
+      "type": "click",
+      "target": "next_actions",
+      "action": "show_remediation_plan"
+    },
+    {
+      "type": "click",
+      "target": "affected_services",
+      "action": "show_service_topology"
+    }
+  ]
+}

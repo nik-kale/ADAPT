@@ -1,0 +1,257 @@
+name: "Network Degradation"
+description: "Playbook for diagnosing network connectivity and performance issues"
+version: "1.0"
+category: "infrastructure"
+
+metadata:
+  severity: "high"
+  expected_duration: "20-45 minutes"
+  author: "ADAPT Team"
+  last_updated: "2025-01-15"
+
+triggers:
+  - type: "metric_threshold"
+    metric: "network_error_rate_percent"
+    condition: "> 5%"
+    duration: "5 minutes"
+  - type: "log_pattern"
+    pattern: "connection.*timeout|network.*unreachable"
+    count: "> 20"
+    window: "5 minutes"
+  - type: "alert"
+    alert_name: "HighNetworkErrors"
+
+initial_symptoms:
+  - "Connection timeout errors"
+  - "Intermittent service unavailability"
+  - "Increased latency between services"
+  - "Packet loss detected"
+
+agent_configuration:
+  execution_mode: "adaptive"
+  agents:
+    - name: "log_analyzer"
+      enabled: true
+      priority: 1
+      config:
+        focus_areas:
+          - "connection timeout"
+          - "network unreachable"
+          - "DNS resolution failures"
+          - "SSL handshake failures"
+
+    - name: "metric_analyzer"
+      enabled: true
+      priority: 1
+      config:
+        metrics_of_interest:
+          - "network_error_rate_percent"
+          - "packet_loss_percent"
+          - "network_latency_ms"
+          - "connection_attempts"
+          - "connection_failures"
+
+    - name: "topology_explainer"
+      enabled: true
+      priority: 1
+      config:
+        analyze_network_topology: true
+        focus_services: "all"
+
+    - name: "change_correlator"
+      enabled: true
+      priority: 2
+      config:
+        correlation_window_minutes: 30
+        focus_components:
+          - "networking"
+          - "load-balancer"
+          - "firewall"
+          - "dns"
+          - "security-groups"
+
+    - name: "remediation_planner"
+      enabled: true
+      priority: 3
+
+common_root_causes:
+  - cause: "Firewall rule changes blocking traffic"
+    probability: 0.25
+    indicators:
+      - "Recent firewall/security group changes"
+      - "Specific ports unreachable"
+      - "Connection refused errors"
+
+  - cause: "Load balancer misconfiguration"
+    probability: 0.20
+    indicators:
+      - "Load balancer health checks failing"
+      - "Uneven traffic distribution"
+      - "Backend targets unreachable"
+
+  - cause: "DNS resolution failures"
+    probability: 0.15
+    indicators:
+      - "DNS lookup timeouts"
+      - "NXDOMAIN errors"
+      - "DNS server unreachable"
+
+  - cause: "Network infrastructure failure"
+    probability: 0.15
+    indicators:
+      - "High packet loss"
+      - "Router/switch failures"
+      - "ISP issues"
+
+  - cause: "SSL/TLS certificate issues"
+    probability: 0.10
+    indicators:
+      - "Certificate validation errors"
+      - "SSL handshake failures"
+      - "Certificate expiration"
+
+  - cause: "Resource exhaustion (ports, connections)"
+    probability: 0.10
+    indicators:
+      - "Ephemeral port exhaustion"
+      - "Too many open connections"
+      - "Connection pool exhausted"
+
+  - cause: "DDoS or traffic surge"
+    probability: 0.05
+    indicators:
+      - "Unusual traffic patterns"
+      - "Traffic from suspicious sources"
+      - "Bandwidth saturation"
+
+investigation_steps:
+  - step: 1
+    action: "Identify affected network paths"
+    commands:
+      - "Determine which services cannot communicate"
+      - "Map affected network segments"
+      - "Identify common failure points"
+
+  - step: 2
+    action: "Check recent network changes"
+    commands:
+      - "Review firewall rule changes"
+      - "Check load balancer configuration changes"
+      - "Verify DNS record changes"
+      - "Check security group modifications"
+
+  - step: 3
+    action: "Test network connectivity"
+    commands:
+      - "Ping test between affected services"
+      - "Traceroute to identify failure point"
+      - "DNS resolution tests"
+      - "Port connectivity tests"
+
+  - step: 4
+    action: "Analyze network metrics"
+    commands:
+      - "Check packet loss rates"
+      - "Review latency metrics"
+      - "Analyze bandwidth utilization"
+      - "Check connection error rates"
+
+  - step: 5
+    action: "Review logs for patterns"
+    commands:
+      - "Search for connection timeout errors"
+      - "Look for SSL/TLS errors"
+      - "Check DNS resolution failures"
+      - "Identify affected protocols/ports"
+
+remediation_strategies:
+  - strategy: "Firewall remediation"
+    actions:
+      - "Review and correct firewall rules"
+      - "Add missing allow rules"
+      - "Remove overly restrictive rules"
+    risk: "medium"
+    estimated_time: "15 minutes"
+
+  - strategy: "Load balancer recovery"
+    actions:
+      - "Restart load balancer health checks"
+      - "Re-register backend targets"
+      - "Adjust load balancer timeouts"
+    risk: "medium"
+    estimated_time: "10 minutes"
+
+  - strategy: "DNS recovery"
+    actions:
+      - "Flush DNS caches"
+      - "Update DNS records if incorrect"
+      - "Switch to backup DNS servers"
+    risk: "low"
+    estimated_time: "10 minutes"
+
+  - strategy: "Certificate renewal"
+    actions:
+      - "Renew expired SSL certificates"
+      - "Update certificate bundles"
+      - "Restart services with new certificates"
+    risk: "medium"
+    estimated_time: "20 minutes"
+
+  - strategy: "Connection pool reset"
+    actions:
+      - "Restart services to reset connections"
+      - "Increase connection pool limits"
+      - "Clear stale connections"
+    risk: "low"
+    estimated_time: "5 minutes"
+
+  - strategy: "Traffic mitigation"
+    actions:
+      - "Enable rate limiting"
+      - "Block suspicious traffic sources"
+      - "Scale up capacity"
+    risk: "low"
+    estimated_time: "10 minutes"
+
+diagnostic_commands:
+  connectivity:
+    - "ping <target>"
+    - "traceroute <target>"
+    - "telnet <host> <port>"
+    - "nc -zv <host> <port>"
+
+  dns:
+    - "nslookup <hostname>"
+    - "dig <hostname>"
+    - "host <hostname>"
+
+  ssl:
+    - "openssl s_client -connect <host>:<port>"
+    - "curl -vv https://<host>"
+
+  network_stats:
+    - "netstat -an | grep <port>"
+    - "ss -tuln"
+    - "lsof -i :<port>"
+
+success_criteria:
+  - metric: "network_error_rate_percent"
+    target: "< 1%"
+    validation_duration: "15 minutes"
+
+  - metric: "connection_success_rate_percent"
+    target: "> 99%"
+    validation_duration: "15 minutes"
+
+  - metric: "network_latency_ms"
+    target: "p95 < baseline + 10%"
+    validation_duration: "15 minutes"
+
+  - check: "All service-to-service connections working"
+    validation: "Automated connectivity tests passing"
+
+tags:
+  - "network"
+  - "infrastructure"
+  - "connectivity"
+  - "high-priority"
