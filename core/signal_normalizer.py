@@ -227,6 +227,169 @@ class SignalNormalizer:
         )
 
     @staticmethod
+    def normalize_trace(
+        trace_data: Dict[str, Any],
+        source: str = "unknown"
+    ) -> NormalizedSignal:
+        """
+        Normalize a distributed trace span into a NormalizedSignal.
+
+        Args:
+            trace_data: Raw trace data (trace_id, span_id, operation, duration, etc.)
+            source: Source identifier
+
+        Returns:
+            NormalizedSignal instance
+        """
+        trace_id = trace_data.get('trace_id', 'unknown')
+        span_id = trace_data.get('span_id', 'unknown')
+        operation = trace_data.get('operation', trace_data.get('name', 'unknown'))
+        duration_ms = trace_data.get('duration_ms', trace_data.get('duration', 0))
+
+        timestamp_str = trace_data.get('timestamp', trace_data.get('start_time'))
+        if timestamp_str:
+            try:
+                timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            except (ValueError, AttributeError):
+                timestamp = datetime.utcnow()
+        else:
+            timestamp = datetime.utcnow()
+
+        # Determine severity based on duration and errors
+        severity = 'low'
+        if trace_data.get('error') or trace_data.get('status_code', 200) >= 500:
+            severity = 'high'
+        elif duration_ms > 5000:  # Slow trace (> 5 seconds)
+            severity = 'medium'
+
+        return NormalizedSignal(
+            signal_type=SignalType.TRACE,
+            title=f"Trace: {operation}",
+            description=f"{operation} took {duration_ms}ms",
+            timestamp=timestamp,
+            source=source,
+            severity=severity,
+            raw_data=trace_data,
+            metadata={
+                'trace_id': trace_id,
+                'span_id': span_id,
+                'operation': operation,
+                'duration_ms': duration_ms,
+                'parent_span_id': trace_data.get('parent_span_id'),
+                'status_code': trace_data.get('status_code'),
+                'error': trace_data.get('error'),
+            },
+            tags=trace_data.get('tags', {})
+        )
+
+    @staticmethod
+    def normalize_alert(
+        alert_data: Dict[str, Any],
+        source: str = "unknown"
+    ) -> NormalizedSignal:
+        """
+        Normalize an alert/alarm into a NormalizedSignal.
+
+        Args:
+            alert_data: Raw alert data (alert_name, state, condition, etc.)
+            source: Source identifier
+
+        Returns:
+            NormalizedSignal instance
+        """
+        alert_name = alert_data.get('alert_name', alert_data.get('name', 'unknown'))
+        state = alert_data.get('state', alert_data.get('status', 'firing'))
+        condition = alert_data.get('condition', alert_data.get('description', ''))
+
+        timestamp_str = alert_data.get('timestamp', alert_data.get('fired_at'))
+        if timestamp_str:
+            try:
+                timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            except (ValueError, AttributeError):
+                timestamp = datetime.utcnow()
+        else:
+            timestamp = datetime.utcnow()
+
+        # Map alert severity
+        severity_map = {
+            'info': 'low',
+            'warning': 'medium',
+            'error': 'high',
+            'critical': 'critical',
+            'page': 'critical',
+        }
+        severity = severity_map.get(
+            alert_data.get('severity', 'warning').lower(),
+            'medium'
+        )
+
+        return NormalizedSignal(
+            signal_type=SignalType.ALERT,
+            title=f"Alert: {alert_name}",
+            description=condition,
+            timestamp=timestamp,
+            source=source,
+            severity=severity,
+            raw_data=alert_data,
+            metadata={
+                'alert_name': alert_name,
+                'state': state,
+                'condition': condition,
+                'labels': alert_data.get('labels', {}),
+                'annotations': alert_data.get('annotations', {}),
+                'generator_url': alert_data.get('generator_url'),
+            },
+            tags=alert_data.get('labels', {})
+        )
+
+    @staticmethod
+    def normalize_event(
+        event_data: Dict[str, Any],
+        source: str = "unknown"
+    ) -> NormalizedSignal:
+        """
+        Normalize a custom event into a NormalizedSignal.
+
+        Args:
+            event_data: Raw event data (event_type, message, etc.)
+            source: Source identifier
+
+        Returns:
+            NormalizedSignal instance
+        """
+        event_type = event_data.get('event_type', event_data.get('type', 'unknown'))
+        message = event_data.get('message', event_data.get('description', ''))
+
+        timestamp_str = event_data.get('timestamp', event_data.get('time'))
+        if timestamp_str:
+            try:
+                timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            except (ValueError, AttributeError):
+                timestamp = datetime.utcnow()
+        else:
+            timestamp = datetime.utcnow()
+
+        # Events are typically low severity unless specified
+        severity = event_data.get('severity', 'low')
+
+        return NormalizedSignal(
+            signal_type=SignalType.EVENT,
+            title=f"Event: {event_type}",
+            description=message,
+            timestamp=timestamp,
+            source=source,
+            severity=severity,
+            raw_data=event_data,
+            metadata={
+                'event_type': event_type,
+                'category': event_data.get('category', 'general'),
+                'user': event_data.get('user'),
+                'resource': event_data.get('resource'),
+            },
+            tags=event_data.get('tags', {})
+        )
+
+    @staticmethod
     def normalize_batch(
         raw_signals: List[Dict[str, Any]],
         signal_type: SignalType,
@@ -258,6 +421,17 @@ class SignalNormalizer:
                 normalized.append(
                     SignalNormalizer.normalize_config_change(raw_signal, source)
                 )
-            # TODO: Add normalizers for traces, alerts, events
+            elif signal_type == SignalType.TRACE:
+                normalized.append(
+                    SignalNormalizer.normalize_trace(raw_signal, source)
+                )
+            elif signal_type == SignalType.ALERT:
+                normalized.append(
+                    SignalNormalizer.normalize_alert(raw_signal, source)
+                )
+            elif signal_type == SignalType.EVENT:
+                normalized.append(
+                    SignalNormalizer.normalize_event(raw_signal, source)
+                )
 
         return normalized

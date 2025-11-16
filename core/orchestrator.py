@@ -216,23 +216,101 @@ class RCAOrchestrator:
         """
         logger.info("Running agents in adaptive mode")
 
-        # Start with log analyzer and metric analyzer in parallel
+        # Phase 1: Run priority diagnostic agents in parallel
         priority_agents = ['log_analyzer', 'metric_analyzer']
+        tasks = []
+        agent_names = []
+
         for agent_name in priority_agents:
+            if agent_name in self.agents:
+                agent_names.append(agent_name)
+                tasks.append(self.agents[agent_name].execute(context))
+
+        if tasks:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for agent_name, result in zip(agent_names, results):
+                if isinstance(result, Exception):
+                    logger.error(f"Agent {agent_name} failed: {result}")
+                    context.agent_results[agent_name] = {'error': str(result)}
+                else:
+                    context.agent_results[agent_name] = result
+
+        # Phase 2: Adaptive agent selection based on initial findings
+        agents_to_run = self._select_next_agents(context)
+
+        logger.info(f"Adaptive mode selected agents: {agents_to_run}")
+
+        # Phase 3: Run selected agents
+        for agent_name in agents_to_run:
             if agent_name in self.agents:
                 result = await self.agents[agent_name].execute(context)
                 context.agent_results[agent_name] = result
 
-        # Based on initial results, determine which agents to run next
-        # TODO: Implement adaptive agent selection logic
-        remaining_agents = [
-            name for name in self.agents.keys()
-            if name not in priority_agents and name != 'remediation_planner'
-        ]
+    def _select_next_agents(self, context: OrchestrationContext) -> List[str]:
+        """
+        Intelligently select which agents to run next based on initial findings.
 
-        for agent_name in remaining_agents:
-            result = await self.agents[agent_name].execute(context)
-            context.agent_results[agent_name] = result
+        Args:
+            context: Current orchestration context with initial agent results
+
+        Returns:
+            List of agent names to execute
+        """
+        agents_to_run = []
+
+        # Analyze log analyzer results
+        log_result = context.agent_results.get('log_analyzer', {})
+        if isinstance(log_result, dict) and log_result.get('success'):
+            findings = log_result.get('findings', [])
+
+            # If we found errors, run change correlator to find recent changes
+            if any('error' in str(f.get('title', '')).lower() for f in findings):
+                if 'change_correlator' in self.agents:
+                    agents_to_run.append('change_correlator')
+                    logger.info("Adaptive: Running change_correlator due to log errors")
+
+            # If multiple services affected, run topology explainer
+            service_finding = next(
+                (f for f in findings if 'multi_service' in f.get('id', '')),
+                None
+            )
+            if service_finding and 'topology_explainer' in self.agents:
+                agents_to_run.append('topology_explainer')
+                logger.info("Adaptive: Running topology_explainer due to multi-service impact")
+
+        # Analyze metric analyzer results
+        metric_result = context.agent_results.get('metric_analyzer', {})
+        if isinstance(metric_result, dict) and metric_result.get('success'):
+            findings = metric_result.get('findings', [])
+
+            # If we found metric anomalies, run topology explainer
+            if findings and 'topology_explainer' not in agents_to_run:
+                if 'topology_explainer' in self.agents:
+                    agents_to_run.append('topology_explainer')
+                    logger.info("Adaptive: Running topology_explainer due to metric anomalies")
+
+        # Always run remaining agents if confidence is low
+        if not agents_to_run or self._has_low_confidence(context):
+            remaining = [
+                name for name in self.agents.keys()
+                if name not in ['log_analyzer', 'metric_analyzer', 'remediation_planner']
+                and name not in agents_to_run
+            ]
+            agents_to_run.extend(remaining)
+            logger.info("Adaptive: Running all remaining agents due to low confidence")
+
+        return agents_to_run
+
+    def _has_low_confidence(self, context: OrchestrationContext) -> bool:
+        """Check if current findings have low confidence scores."""
+        for result in context.agent_results.values():
+            if isinstance(result, dict) and result.get('success'):
+                findings = result.get('findings', [])
+                if findings:
+                    avg_confidence = sum(f.get('confidence', 0) for f in findings) / len(findings)
+                    if avg_confidence >= 0.7:
+                        return False
+        return True
 
     async def _synthesize_findings(self, context: OrchestrationContext) -> None:
         """
