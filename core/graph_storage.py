@@ -67,18 +67,33 @@ class GraphStorage(ABC):
         self,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-        limit: int = 100
+        limit: int = 100,
+        offset: int = 0
     ) -> List[Dict[str, Any]]:
         """
-        List stored graphs with metadata.
+        List stored graphs with metadata (v4.0 enhanced with pagination).
 
         Args:
             start_date: Filter graphs created after this date
             end_date: Filter graphs created before this date
             limit: Maximum number of results
+            offset: Number of results to skip (v4.0 pagination)
 
         Returns:
             List of graph metadata dictionaries
+        """
+        pass
+
+    @abstractmethod
+    async def delete_graph(self, graph_id: str) -> bool:
+        """
+        Delete an RCA graph (v4.0 product enhancement).
+
+        Args:
+            graph_id: The graph/incident ID to delete
+
+        Returns:
+            True if deleted successfully, False if not found
         """
         pass
 
@@ -290,9 +305,10 @@ class Neo4jGraphStorage(GraphStorage):
         self,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-        limit: int = 100
+        limit: int = 100,
+        offset: int = 0
     ) -> List[Dict[str, Any]]:
-        """List stored graphs with metadata"""
+        """List stored graphs with metadata (v4.0 enhanced with pagination)"""
 
         async with self.driver.session() as session:
             query = """
@@ -300,7 +316,7 @@ class Neo4jGraphStorage(GraphStorage):
             WHERE 1=1
             """
 
-            params = {'limit': limit}
+            params = {'limit': limit, 'offset': offset}
 
             if start_date:
                 query += " AND i.created_at >= $start_date"
@@ -312,12 +328,22 @@ class Neo4jGraphStorage(GraphStorage):
 
             query += """
             OPTIONAL MATCH (i)-[:HAS_NODE]->(n:RCANode)
-            WITH i, count(n) as node_count
+            OPTIONAL MATCH (i)-[:HAS_NODE]->(rc:RCANode)
+            WHERE rc.type = 'root_cause'
+            OPTIONAL MATCH (i)-[:HAS_NODE]->(f:RCANode)
+            WHERE f.type = 'finding'
+            WITH i,
+                 count(DISTINCT n) as node_count,
+                 count(DISTINCT rc) as root_causes_count,
+                 count(DISTINCT f) as findings_count
             RETURN i.id as incident_id,
                    i.created_at as created_at,
                    i.updated_at as updated_at,
-                   node_count
+                   node_count,
+                   root_causes_count,
+                   findings_count
             ORDER BY i.created_at DESC
+            SKIP $offset
             LIMIT $limit
             """
 
@@ -329,10 +355,44 @@ class Neo4jGraphStorage(GraphStorage):
                     'incident_id': record['incident_id'],
                     'created_at': record['created_at'],
                     'updated_at': record['updated_at'],
-                    'node_count': record['node_count']
+                    'node_count': record['node_count'],
+                    'root_causes_count': record['root_causes_count'],  # v4.0: N+1 fix
+                    'findings_count': record['findings_count'],  # v4.0: N+1 fix
                 })
 
         return graphs
+
+    async def delete_graph(self, graph_id: str) -> bool:
+        """Delete RCA graph from Neo4j (v4.0 product enhancement)"""
+
+        async with self.driver.session() as session:
+            # First check if incident exists
+            result = await session.run(
+                """
+                MATCH (i:Incident {id: $incident_id})
+                RETURN count(i) as count
+                """,
+                incident_id=graph_id
+            )
+
+            record = await result.single()
+            if not record or record['count'] == 0:
+                return False
+
+            # Delete all nodes and edges related to this incident
+            await session.run(
+                """
+                MATCH (i:Incident {id: $incident_id})
+                OPTIONAL MATCH (i)-[:HAS_NODE]->(n:RCANode)
+                OPTIONAL MATCH (n)-[r:RELATES_TO]->()
+                WHERE r.incident_id = $incident_id
+                DETACH DELETE n, r, i
+                """,
+                incident_id=graph_id
+            )
+
+            logger.info(f"Deleted graph for incident: {graph_id}")
+            return True
 
     async def close(self):
         """Close database connection"""
