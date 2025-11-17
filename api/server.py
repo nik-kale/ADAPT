@@ -31,7 +31,9 @@ from .middleware import (
     RateLimitMiddleware,
     RequestIDMiddleware,
     SecurityHeadersMiddleware,
+    ConcurrencyLimitMiddleware,
     get_rate_limiter,
+    get_concurrency_limiter,
 )
 from core import (
     configure_logging,
@@ -108,6 +110,9 @@ app.add_middleware(RequestIDMiddleware)
 
 # v4.0 Security Enhancement: Rate limiting
 app.add_middleware(RateLimitMiddleware)
+
+# v4.0 Performance Enhancement: Concurrency limiting (P0 Issue 5.5)
+app.add_middleware(ConcurrencyLimitMiddleware)
 
 # v4.0 Security Enhancement: Enforce HTTPS in production
 environment = os.getenv("ENVIRONMENT", "development")

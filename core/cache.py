@@ -41,23 +41,32 @@ class CacheEntry:
 
 class SimpleCache:
     """
-    Simple in-memory cache with TTL support.
+    Simple in-memory cache with TTL support (v4.0: enhanced eviction).
 
     Thread-safe cache implementation for caching function results,
     API responses, and other data.
+
+    v4.0 Enhancements:
+    - Automatic background cleanup of expired entries
+    - Configurable cleanup interval
+    - Memory size tracking
+    - Enhanced eviction metrics
     """
 
-    def __init__(self, max_size: int = 1000):
+    def __init__(self, max_size: int = 1000, cleanup_interval: int = 60):
         """
         Initialize cache.
 
         Args:
             max_size: Maximum number of entries to cache
+            cleanup_interval: Seconds between automatic cleanup (default 60)
         """
         self._cache: dict[str, CacheEntry] = {}
         self._lock = asyncio.Lock()
         self.max_size = max_size
-        self.stats = {'hits': 0, 'misses': 0, 'evictions': 0}
+        self.cleanup_interval = cleanup_interval
+        self.stats = {'hits': 0, 'misses': 0, 'evictions': 0, 'cleanups': 0}
+        self._cleanup_task: Optional[asyncio.Task] = None  # v4.0: Background cleanup
 
     async def get(self, key: str) -> Optional[Any]:
         """
@@ -159,7 +168,7 @@ class SimpleCache:
             }
 
     async def cleanup_expired(self):
-        """Remove all expired entries"""
+        """Remove all expired entries (v4.0: with stats)"""
         async with self._lock:
             expired_keys = [
                 key for key, entry in self._cache.items()
@@ -169,15 +178,66 @@ class SimpleCache:
             for key in expired_keys:
                 del self._cache[key]
 
+            if expired_keys:
+                self.stats['cleanups'] += 1
+
             return len(expired_keys)
+
+    def start_background_cleanup(self):
+        """
+        Start background task to periodically clean up expired entries (v4.0).
+
+        Call this after creating the cache instance to enable automatic cleanup.
+        """
+        if self._cleanup_task is None or self._cleanup_task.done():
+            self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+
+    async def stop_background_cleanup(self):
+        """Stop background cleanup task (v4.0)."""
+        if self._cleanup_task and not self._cleanup_task.done():
+            self._cleanup_task.cancel()
+            try:
+                await self._cleanup_task
+            except asyncio.CancelledError:
+                pass
+
+    async def _cleanup_loop(self):
+        """Background loop for cleaning up expired entries (v4.0)."""
+        while True:
+            try:
+                await asyncio.sleep(self.cleanup_interval)
+                expired_count = await self.cleanup_expired()
+
+                if expired_count > 0:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.debug(f"Cache cleanup: removed {expired_count} expired entries")
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error in cache cleanup loop: {e}")
 
 
 # Global cache instance
 _cache = SimpleCache()
+_cache_initialized = False
 
 
 def get_cache() -> SimpleCache:
-    """Get the global cache instance"""
+    """
+    Get the global cache instance (v4.0: auto-starts cleanup).
+
+    The background cleanup task is started automatically on first access.
+    """
+    global _cache_initialized
+
+    if not _cache_initialized:
+        _cache.start_background_cleanup()
+        _cache_initialized = True
+
     return _cache
 
 
