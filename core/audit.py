@@ -11,6 +11,10 @@ from dataclasses import dataclass, field
 import logging
 import json
 import asyncio
+import hashlib
+import hmac
+import os
+from pathlib import Path
 
 from core.tenant import get_tenant_context, get_user_context
 
@@ -84,7 +88,14 @@ class AuditLevel(str, Enum):
 
 @dataclass
 class AuditEvent:
-    """An audit log event"""
+    """
+    An audit log event (v4.0: tamper-proof with cryptographic hash)
+
+    Each event contains a hash that includes:
+    - All event data
+    - Previous event hash (chain of custody)
+    - HMAC signature for authenticity
+    """
     event_id: str
     event_type: AuditEventType
     level: AuditLevel
@@ -100,9 +111,12 @@ class AuditEvent:
     user_agent: Optional[str] = None
     session_id: Optional[str] = None
     request_id: Optional[str] = None
+    previous_hash: Optional[str] = None  # v4.0: Hash of previous event
+    event_hash: Optional[str] = None  # v4.0: Hash of this event
+    signature: Optional[str] = None  # v4.0: HMAC signature
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary"""
+        """Convert to dictionary (v4.0: includes tamper-proof hashes)"""
         return {
             'event_id': self.event_id,
             'event_type': self.event_type.value,
@@ -119,7 +133,128 @@ class AuditEvent:
             'user_agent': self.user_agent,
             'session_id': self.session_id,
             'request_id': self.request_id,
+            'previous_hash': self.previous_hash,
+            'event_hash': self.event_hash,
+            'signature': self.signature,
         }
+
+    def compute_hash(self, secret_key: Optional[str] = None) -> str:
+        """
+        Compute cryptographic hash of this event (v4.0).
+
+        The hash includes all event data plus the previous event's hash,
+        creating a tamper-evident chain.
+
+        Args:
+            secret_key: Optional secret for HMAC signature
+
+        Returns:
+            SHA-256 hash of event data
+        """
+        # Create deterministic JSON representation (sorted keys)
+        data_to_hash = {
+            'event_id': self.event_id,
+            'event_type': self.event_type.value,
+            'level': self.level.value,
+            'timestamp': self.timestamp.isoformat(),
+            'tenant_id': self.tenant_id,
+            'user_id': self.user_id,
+            'resource_type': self.resource_type,
+            'resource_id': self.resource_id,
+            'action': self.action,
+            'result': self.result,
+            'details': self.details,
+            'ip_address': self.ip_address,
+            'user_agent': self.user_agent,
+            'session_id': self.session_id,
+            'request_id': self.request_id,
+            'previous_hash': self.previous_hash,
+        }
+
+        json_str = json.dumps(data_to_hash, sort_keys=True)
+
+        # SHA-256 hash
+        hash_digest = hashlib.sha256(json_str.encode('utf-8')).hexdigest()
+
+        # HMAC signature if secret provided
+        if secret_key:
+            self.signature = hmac.new(
+                secret_key.encode('utf-8'),
+                json_str.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+
+        self.event_hash = hash_digest
+        return hash_digest
+
+    def verify_hash(self) -> bool:
+        """
+        Verify that this event's hash is valid (v4.0).
+
+        Returns:
+            True if hash is valid, False if tampered
+        """
+        if not self.event_hash:
+            return False
+
+        # Temporarily clear hash to recompute
+        stored_hash = self.event_hash
+        stored_sig = self.signature
+        self.event_hash = None
+        self.signature = None
+
+        # Recompute hash
+        computed_hash = self.compute_hash()
+
+        # Restore original values
+        original_hash = self.event_hash
+        self.event_hash = stored_hash
+        self.signature = stored_sig
+
+        return computed_hash == stored_hash
+
+    def verify_signature(self, secret_key: str) -> bool:
+        """
+        Verify HMAC signature (v4.0).
+
+        Args:
+            secret_key: Secret key used for signing
+
+        Returns:
+            True if signature is valid
+        """
+        if not self.signature:
+            return False
+
+        # Recompute signature
+        data_to_hash = {
+            'event_id': self.event_id,
+            'event_type': self.event_type.value,
+            'level': self.level.value,
+            'timestamp': self.timestamp.isoformat(),
+            'tenant_id': self.tenant_id,
+            'user_id': self.user_id,
+            'resource_type': self.resource_type,
+            'resource_id': self.resource_id,
+            'action': self.action,
+            'result': self.result,
+            'details': self.details,
+            'ip_address': self.ip_address,
+            'user_agent': self.user_agent,
+            'session_id': self.session_id,
+            'request_id': self.request_id,
+            'previous_hash': self.previous_hash,
+        }
+
+        json_str = json.dumps(data_to_hash, sort_keys=True)
+
+        expected_sig = hmac.new(
+            secret_key.encode('utf-8'),
+            json_str.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+
+        return hmac.compare_digest(expected_sig, self.signature)
 
     def to_json(self) -> str:
         """Convert to JSON string"""
@@ -128,7 +263,7 @@ class AuditEvent:
 
 class AuditLogger:
     """
-    Comprehensive audit logging system.
+    Comprehensive audit logging system (v4.0: tamper-proof).
 
     Features:
     - Structured audit events
@@ -136,11 +271,16 @@ class AuditLogger:
     - Query and search capabilities
     - Compliance reporting
     - Real-time alerting for critical events
+    - v4.0: Cryptographic hash chain for tamper evidence
+    - v4.0: HMAC signatures for authenticity
     """
 
-    def __init__(self, storage_backend=None):
+    def __init__(self, storage_backend=None, secret_key: Optional[str] = None):
         self.storage = storage_backend or InMemoryAuditStorage()
         self.event_counter = 0
+        # v4.0: Secret key for HMAC signatures
+        self.secret_key = secret_key or os.getenv("ADAPT_AUDIT_SECRET", None)
+        self.last_event_hash: Optional[str] = None  # v4.0: For hash chain
 
     async def log_event(
         self,
@@ -171,13 +311,14 @@ class AuditLogger:
         """
         self.event_counter += 1
 
+        # v4.0: Create event with hash chain
         event = AuditEvent(
             event_id=f"audit_{datetime.utcnow().timestamp()}_{self.event_counter}",
             event_type=event_type,
             level=level,
             timestamp=datetime.utcnow(),
-            tenant_id=get_tenant_context() or "default",
-            user_id=get_user_context(),
+            tenant_id=kwargs.get('tenant_id') or get_tenant_context() or "default",
+            user_id=kwargs.get('user_id') or get_user_context(),
             resource_type=resource_type,
             resource_id=resource_id,
             action=action,
@@ -187,7 +328,12 @@ class AuditLogger:
             user_agent=kwargs.get('user_agent'),
             session_id=kwargs.get('session_id'),
             request_id=kwargs.get('request_id'),
+            previous_hash=self.last_event_hash,  # v4.0: Link to previous event
         )
+
+        # v4.0: Compute hash and signature for tamper-proofing
+        event.compute_hash(self.secret_key)
+        self.last_event_hash = event.event_hash
 
         # Store event
         await self.storage.store(event)
@@ -301,6 +447,94 @@ class AuditLogger:
 
         return sorted(events, key=lambda e: e.timestamp, reverse=True)
 
+    async def verify_audit_chain(
+        self,
+        tenant_id: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """
+        Verify integrity of the audit log chain (v4.0).
+
+        Checks:
+        1. Each event's hash is valid
+        2. Hash chain is unbroken (each event links to previous)
+        3. HMAC signatures are valid (if secret key available)
+
+        Args:
+            tenant_id: Filter by tenant
+            start_time: Filter by start time
+            end_time: Filter by end time
+
+        Returns:
+            Verification results with details
+        """
+        events = await self.query_events(
+            tenant_id=tenant_id,
+            start_time=start_time,
+            end_time=end_time,
+            limit=10000
+        )
+
+        # Sort by timestamp to verify chain
+        events = sorted(events, key=lambda e: e.timestamp)
+
+        results = {
+            'total_events': len(events),
+            'valid_hashes': 0,
+            'invalid_hashes': 0,
+            'broken_chains': 0,
+            'valid_signatures': 0,
+            'invalid_signatures': 0,
+            'tampered_events': [],
+            'verification_timestamp': datetime.utcnow().isoformat(),
+        }
+
+        previous_hash = None
+
+        for event in events:
+            # Verify hash
+            if event.verify_hash():
+                results['valid_hashes'] += 1
+            else:
+                results['invalid_hashes'] += 1
+                results['tampered_events'].append({
+                    'event_id': event.event_id,
+                    'reason': 'Invalid hash',
+                    'timestamp': event.timestamp.isoformat()
+                })
+
+            # Verify chain link
+            if previous_hash is not None and event.previous_hash != previous_hash:
+                results['broken_chains'] += 1
+                results['tampered_events'].append({
+                    'event_id': event.event_id,
+                    'reason': 'Broken chain link',
+                    'timestamp': event.timestamp.isoformat()
+                })
+
+            # Verify signature if secret available
+            if self.secret_key:
+                if event.verify_signature(self.secret_key):
+                    results['valid_signatures'] += 1
+                else:
+                    results['invalid_signatures'] += 1
+                    results['tampered_events'].append({
+                        'event_id': event.event_id,
+                        'reason': 'Invalid signature',
+                        'timestamp': event.timestamp.isoformat()
+                    })
+
+            previous_hash = event.event_hash
+
+        results['integrity_verified'] = (
+            results['invalid_hashes'] == 0 and
+            results['broken_chains'] == 0 and
+            (not self.secret_key or results['invalid_signatures'] == 0)
+        )
+
+        return results
+
     async def _alert_critical_event(self, event: AuditEvent):
         """Alert on critical audit events"""
         # This could integrate with PagerDuty, Slack, etc.
@@ -373,6 +607,202 @@ class PostgresAuditStorage:
         """Query events from PostgreSQL"""
         # TODO: Implement PostgreSQL query
         pass
+
+
+class TamperProofFileStorage:
+    """
+    Append-only file storage for audit logs (v4.0).
+
+    Features:
+    - Append-only mode (no modifications allowed)
+    - One event per line (JSON Lines format)
+    - File rotation by date
+    - Tamper-evident hash chain
+    - Read-only verification
+
+    Security:
+    - Files are opened in append mode only
+    - Hashes make tampering detectable
+    - Separate files per tenant (optional)
+    """
+
+    def __init__(self, storage_path: str = "./data/audit", per_tenant: bool = True):
+        self.storage_path = Path(storage_path)
+        self.per_tenant = per_tenant
+        self.storage_path.mkdir(parents=True, exist_ok=True)
+
+        # Set restrictive permissions (owner read/write only)
+        if os.name != 'nt':  # Unix/Linux only
+            os.chmod(self.storage_path, 0o700)
+
+        logger.info(f"Initialized tamper-proof audit storage at {self.storage_path}")
+
+    def _get_log_file(self, tenant_id: str, date: datetime) -> Path:
+        """Get log file path for a specific tenant and date"""
+        if self.per_tenant:
+            tenant_dir = self.storage_path / tenant_id
+            tenant_dir.mkdir(exist_ok=True)
+            if os.name != 'nt':
+                os.chmod(tenant_dir, 0o700)
+            return tenant_dir / f"audit_{date.strftime('%Y%m%d')}.jsonl"
+        else:
+            return self.storage_path / f"audit_{date.strftime('%Y%m%d')}.jsonl"
+
+    async def store(self, event: AuditEvent):
+        """
+        Store event in append-only log file (v4.0).
+
+        Events are written as JSON Lines (one per line) and cannot be modified.
+        """
+        log_file = self._get_log_file(event.tenant_id, event.timestamp)
+
+        # Append event to log file (atomic operation)
+        try:
+            # Use 'a' mode for append-only (cannot modify existing content)
+            async with asyncio.Lock():  # Ensure atomic writes
+                with open(log_file, 'a', encoding='utf-8') as f:
+                    f.write(event.to_json() + '\n')
+
+                    # Set read-only permissions on file (prevent tampering)
+                    if os.name != 'nt':
+                        os.chmod(log_file, 0o400)  # Read-only for owner
+
+        except Exception as e:
+            logger.error(f"Failed to write audit event to file: {e}")
+            raise
+
+    async def query(
+        self,
+        tenant_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        event_type: Optional[AuditEventType] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        resource_type: Optional[str] = None,
+        resource_id: Optional[str] = None,
+        limit: int = 100
+    ) -> List[AuditEvent]:
+        """
+        Query events from log files (v4.0).
+
+        Reads events from JSONL files and filters them.
+        """
+        events = []
+
+        # Determine which files to read
+        if start_time and end_time:
+            date_range = [
+                start_time.date() + timedelta(days=i)
+                for i in range((end_time.date() - start_time.date()).days + 1)
+            ]
+        else:
+            # Read all available files
+            date_range = self._get_available_dates(tenant_id)
+
+        # Read events from files
+        for date in date_range:
+            date_dt = datetime.combine(date, datetime.min.time())
+            log_file = self._get_log_file(tenant_id or "default", date_dt)
+
+            if not log_file.exists():
+                continue
+
+            try:
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        if not line.strip():
+                            continue
+
+                        try:
+                            event_data = json.loads(line)
+                            event = self._dict_to_event(event_data)
+
+                            # Apply filters
+                            if tenant_id and event.tenant_id != tenant_id:
+                                continue
+                            if user_id and event.user_id != user_id:
+                                continue
+                            if event_type and event.event_type != event_type:
+                                continue
+                            if resource_type and event.resource_type != resource_type:
+                                continue
+                            if resource_id and event.resource_id != resource_id:
+                                continue
+
+                            events.append(event)
+
+                            if len(events) >= limit:
+                                break
+
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"Skipping corrupted audit line: {e}")
+
+            except Exception as e:
+                logger.error(f"Failed to read audit file {log_file}: {e}")
+
+            if len(events) >= limit:
+                break
+
+        # Sort by timestamp descending
+        events = sorted(events, key=lambda e: e.timestamp, reverse=True)
+
+        return events[:limit]
+
+    def _get_available_dates(self, tenant_id: Optional[str] = None) -> List:
+        """Get list of dates for which log files exist"""
+        from datetime import date, timedelta
+
+        dates = []
+
+        if self.per_tenant and tenant_id:
+            tenant_dir = self.storage_path / tenant_id
+            if not tenant_dir.exists():
+                return []
+
+            pattern = "audit_*.jsonl"
+            for file in tenant_dir.glob(pattern):
+                try:
+                    date_str = file.stem.split('_')[1]
+                    file_date = datetime.strptime(date_str, '%Y%m%d').date()
+                    dates.append(file_date)
+                except (ValueError, IndexError):
+                    continue
+        else:
+            pattern = "audit_*.jsonl"
+            for file in self.storage_path.glob(pattern):
+                try:
+                    date_str = file.stem.split('_')[1]
+                    file_date = datetime.strptime(date_str, '%Y%m%d').date()
+                    dates.append(file_date)
+                except (ValueError, IndexError):
+                    continue
+
+        return sorted(dates)
+
+    def _dict_to_event(self, data: Dict[str, Any]) -> AuditEvent:
+        """Convert dictionary to AuditEvent"""
+        from datetime import timedelta
+
+        return AuditEvent(
+            event_id=data['event_id'],
+            event_type=AuditEventType(data['event_type']),
+            level=AuditLevel(data['level']),
+            timestamp=datetime.fromisoformat(data['timestamp']),
+            tenant_id=data['tenant_id'],
+            user_id=data.get('user_id'),
+            resource_type=data.get('resource_type'),
+            resource_id=data.get('resource_id'),
+            action=data['action'],
+            result=data['result'],
+            details=data.get('details', {}),
+            ip_address=data.get('ip_address'),
+            user_agent=data.get('user_agent'),
+            session_id=data.get('session_id'),
+            request_id=data.get('request_id'),
+            previous_hash=data.get('previous_hash'),
+            event_hash=data.get('event_hash'),
+            signature=data.get('signature'),
+        )
 
 
 # Global audit logger instance

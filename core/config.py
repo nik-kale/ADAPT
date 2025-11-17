@@ -98,6 +98,12 @@ class ADAPTConfig(BaseModel):
     auto_remediation_max_concurrent: int = Field(default=3, ge=1, le=20)
     auto_remediation_timeout: int = Field(default=300, ge=1, le=3600)
 
+    # v4.0 - RCA Execution Timeout (P0 Critical Issue 1.9)
+    rca_execution_timeout: int = Field(
+        default=600, ge=60, le=3600,
+        description="Maximum execution time for RCA analysis in seconds (default 10 minutes)"
+    )
+
     # v3.0 - Predictive Detection
     predictive_detection_enabled: bool = False
     prediction_window_hours: int = Field(default=1, ge=1, le=168)

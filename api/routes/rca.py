@@ -39,7 +39,9 @@ def create_orchestrator(config: ADAPTConfig = None) -> RCAOrchestrator:
     if config is None:
         try:
             config = load_config("config.yaml")
-        except:
+        except (FileNotFoundError, ValueError) as e:
+            # v4.0: Specific exception handling (P0 Issue 5.2)
+            logger.debug(f"Config file not found or invalid, using defaults: {e}")
             config = ADAPTConfig()
 
     orchestrator = RCAOrchestrator(config)
@@ -83,96 +85,113 @@ async def analyze_incident(
     signals = [convert_signal_request_to_normalized(s) for s in request.signals]
 
     # Create orchestrator
-    orchestrator = create_orchestrator()
+    config = load_config() if not request.execution_mode else None
+    orchestrator = create_orchestrator(config)
     orchestrator.execution_mode = request.execution_mode
 
+    # v4.0: Get RCA execution timeout from config (P0 Issue 1.9)
+    if config is None:
+        config = load_config()
+    timeout_seconds = config.rca_execution_timeout
+
     try:
-        # Run RCA
-        context = await orchestrator.run_rca(
-            incident_id=request.incident_id, signals=signals
+        # Run RCA with timeout protection (v4.0)
+        context = await asyncio.wait_for(
+            orchestrator.run_rca(incident_id=request.incident_id, signals=signals),
+            timeout=timeout_seconds
         )
-
-        # Convert to response model
-        root_causes = [
-            RootCauseResponse(
-                id=rc.id,
-                title=rc.title,
-                description=rc.description,
-                confidence=rc.confidence,
-                metadata=rc.metadata,
-            )
-            for rc in context.graph.get_root_causes()
-        ]
-
-        # Collect all findings from agent results
-        all_findings = []
-        for agent_name, result in context.agent_results.items():
-            if isinstance(result, dict) and result.get("success"):
-                for finding_data in result.get("findings", []):
-                    all_findings.append(
-                        FindingResponse(
-                            id=finding_data.get("id", f"finding_{agent_name}"),
-                            title=finding_data.get("title", ""),
-                            description=finding_data.get("description", ""),
-                            confidence=finding_data.get("confidence", 0.0),
-                            agent=agent_name,
-                            metadata=finding_data.get("metadata", {}),
-                        )
-                    )
-
-        # Build graph response
-        nodes = [
-            NodeResponse(
-                id=node.id,
-                type=node.type.value,
-                title=node.title,
-                description=node.description,
-                confidence=node.confidence,
-                metadata=node.metadata,
-                created_at=node.created_at,
-            )
-            for node in context.graph.nodes.values()
-        ]
-
-        edges = [
-            EdgeResponse(
-                source=edge.source,
-                target=edge.target,
-                type=edge.type.value,
-                weight=edge.weight,
-                metadata=edge.metadata,
-            )
-            for edge in context.graph.edges
-        ]
-
-        graph = RCAGraphResponse(
-            incident_id=context.incident_id,
-            nodes=nodes,
-            edges=edges,
-            created_at=context.graph.created_at,
-            metadata=context.graph.metadata,
+    except asyncio.TimeoutError:
+        logger.error(
+            f"RCA analysis for incident {request.incident_id} exceeded timeout "
+            f"of {timeout_seconds} seconds"
         )
-
-        execution_time = None
-        if context.end_time and context.start_time:
-            execution_time = (context.end_time - context.start_time).total_seconds()
-
-        return RCAResponse(
-            incident_id=context.incident_id,
-            status="completed",
-            start_time=context.start_time,
-            end_time=context.end_time,
-            execution_time_seconds=execution_time,
-            root_causes=root_causes,
-            findings=all_findings,
-            graph=graph,
-            narrative=context.graph.export_narrative(),
-            metadata=context.metadata,
+        raise HTTPException(
+            status_code=504,
+            detail=f"RCA analysis exceeded maximum execution time of {timeout_seconds} seconds. "
+            "This may indicate a stuck analysis or resource contention. "
+            "Try reducing signal count or increasing timeout in configuration."
         )
-
     except Exception as e:
         logger.error(f"RCA failed for incident {request.incident_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"RCA analysis failed: {str(e)}")
+
+    # Convert to response model
+    root_causes = [
+        RootCauseResponse(
+            id=rc.id,
+            title=rc.title,
+            description=rc.description,
+            confidence=rc.confidence,
+            metadata=rc.metadata,
+        )
+        for rc in context.graph.get_root_causes()
+    ]
+
+    # Collect all findings from agent results
+    all_findings = []
+    for agent_name, result in context.agent_results.items():
+        if isinstance(result, dict) and result.get("success"):
+            for finding_data in result.get("findings", []):
+                all_findings.append(
+                    FindingResponse(
+                        id=finding_data.get("id", f"finding_{agent_name}"),
+                        title=finding_data.get("title", ""),
+                        description=finding_data.get("description", ""),
+                        confidence=finding_data.get("confidence", 0.0),
+                        agent=agent_name,
+                        metadata=finding_data.get("metadata", {}),
+                    )
+                )
+
+    # Build graph response
+    nodes = [
+        NodeResponse(
+            id=node.id,
+            type=node.type.value,
+            title=node.title,
+            description=node.description,
+            confidence=node.confidence,
+            metadata=node.metadata,
+            created_at=node.created_at,
+        )
+        for node in context.graph.nodes.values()
+    ]
+
+    edges = [
+        EdgeResponse(
+            source=edge.source,
+            target=edge.target,
+            type=edge.type.value,
+            weight=edge.weight,
+            metadata=edge.metadata,
+        )
+        for edge in context.graph.edges
+    ]
+
+    graph = RCAGraphResponse(
+        incident_id=context.incident_id,
+        nodes=nodes,
+        edges=edges,
+        created_at=context.graph.created_at,
+        metadata=context.graph.metadata,
+    )
+
+    execution_time = None
+    if context.end_time and context.start_time:
+        execution_time = (context.end_time - context.start_time).total_seconds()
+
+    return RCAResponse(
+        incident_id=context.incident_id,
+        status="completed",
+        start_time=context.start_time,
+        end_time=context.end_time,
+        execution_time_seconds=execution_time,
+        root_causes=root_causes,
+        findings=all_findings,
+        graph=graph,
+        narrative=context.graph.export_narrative(),
+        metadata=context.metadata,
+    )
 
 
 @router.websocket("/rca/stream/{incident_id}")
@@ -205,17 +224,38 @@ async def stream_rca(websocket: WebSocket, incident_id: str):
             )
 
         # Create streaming orchestrator
-        streaming_orch = StreamingOrchestrator(ADAPTConfig())
+        config = load_config()
+        streaming_orch = StreamingOrchestrator(config)
 
-        # Stream updates
-        async for update in streaming_orch.run_rca_streaming(incident_id, signals):
+        # v4.0: Apply timeout to streaming as well
+        timeout_seconds = config.rca_execution_timeout
+
+        try:
+            # Stream updates with timeout protection
+            async def stream_with_timeout():
+                async for update in streaming_orch.run_rca_streaming(incident_id, signals):
+                    await websocket.send_json(
+                        {
+                            "type": update.type.value,
+                            "timestamp": update.timestamp.isoformat(),
+                            "data": update.data,
+                        }
+                    )
+
+            await asyncio.wait_for(stream_with_timeout(), timeout=timeout_seconds)
+
+        except asyncio.TimeoutError:
+            logger.error(f"Streaming RCA for incident {incident_id} exceeded timeout")
             await websocket.send_json(
                 {
-                    "type": update.type.value,
-                    "timestamp": update.timestamp.isoformat(),
-                    "data": update.data,
+                    "type": "ERROR",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "data": {
+                        "error": f"RCA analysis exceeded maximum execution time of {timeout_seconds} seconds"
+                    },
                 }
             )
+            await websocket.close()
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for incident {incident_id}")

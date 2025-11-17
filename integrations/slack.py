@@ -2,12 +2,15 @@
 Slack Integration
 
 Post RCA summaries, alerts, and notifications to Slack channels.
+
+v4.0: Enhanced with async HTTP for webhook integration
 """
 
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import logging
 import os
+import aiohttp
 
 logger = logging.getLogger(__name__)
 
@@ -71,15 +74,19 @@ class SlackIntegration:
                 logger.info(f"Posted RCA summary to {channel}: {response['ts']}")
                 return True
             elif self.webhook_url:
-                # Use webhook (synchronous)
-                import requests
-
-                response = requests.post(
-                    self.webhook_url, json={"blocks": blocks}
-                )
-                response.raise_for_status()
-                logger.info(f"Posted RCA summary via webhook")
-                return True
+                # v4.0: Use async HTTP with aiohttp (no blocking)
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        self.webhook_url, json={"blocks": blocks}
+                    ) as response:
+                        if response.status == 200:
+                            logger.info(f"Posted RCA summary via webhook")
+                            return True
+                        else:
+                            logger.error(
+                                f"Webhook returned status {response.status}"
+                            )
+                            return False
 
         except Exception as e:
             logger.error(f"Failed to post to Slack: {e}")
@@ -276,11 +283,12 @@ class SlackIntegration:
                 )
                 return True
             elif self.webhook_url:
-                import requests
-
-                response = requests.post(self.webhook_url, json={"blocks": blocks})
-                response.raise_for_status()
-                return True
+                # v4.0: Use async HTTP with aiohttp (no blocking)
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        self.webhook_url, json={"blocks": blocks}
+                    ) as response:
+                        return response.status == 200
 
         except Exception as e:
             logger.error(f"Failed to post alert to Slack: {e}")
