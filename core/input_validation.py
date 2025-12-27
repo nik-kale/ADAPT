@@ -16,11 +16,11 @@ logger = logging.getLogger(__name__)
 
 class ValidationError(Exception):
     """Custom exception for validation errors with helpful messages"""
-    
+
     def __init__(self, message: str, field: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
         """
         Initialize validation error.
-        
+
         Args:
             message: Human-readable error message
             field: Optional field name that failed validation
@@ -30,7 +30,7 @@ class ValidationError(Exception):
         self.field = field
         self.details = details or {}
         super().__init__(self.message)
-    
+
     def __str__(self) -> str:
         """Format error message"""
         if self.field:
@@ -42,7 +42,7 @@ class ValidationError(Exception):
 class ValidationResult:
     """
     Result of a validation operation.
-    
+
     Attributes:
         valid: Whether validation passed
         errors: List of error messages
@@ -53,7 +53,7 @@ class ValidationResult:
     errors: List[str] = None
     warnings: List[str] = None
     details: Dict[str, Any] = None
-    
+
     def __post_init__(self):
         if self.errors is None:
             self.errors = []
@@ -61,16 +61,16 @@ class ValidationResult:
             self.warnings = []
         if self.details is None:
             self.details = {}
-    
+
     def add_error(self, message: str) -> None:
         """Add an error message"""
         self.errors.append(message)
         self.valid = False
-    
+
     def add_warning(self, message: str) -> None:
         """Add a warning message"""
         self.warnings.append(message)
-    
+
     def raise_if_invalid(self) -> None:
         """Raise ValidationError if validation failed"""
         if not self.valid:
@@ -79,7 +79,7 @@ class ValidationResult:
 
 class FileValidator:
     """Validates file paths and operations"""
-    
+
     @staticmethod
     def validate_file_exists(
         file_path: Union[str, Path],
@@ -88,18 +88,18 @@ class FileValidator:
     ) -> ValidationResult:
         """
         Validate that a file exists and is readable.
-        
+
         Args:
             file_path: Path to file
             file_type: Description of file type for error messages
             max_size_mb: Optional maximum file size in MB
-            
+
         Returns:
             ValidationResult with validation status
         """
         result = ValidationResult()
         path = Path(file_path)
-        
+
         # Check existence
         if not path.exists():
             result.add_error(
@@ -107,7 +107,7 @@ class FileValidator:
                 f"Please check that the path is correct and the file exists."
             )
             return result
-        
+
         # Check if it's a file (not directory)
         if not path.is_file():
             result.add_error(
@@ -115,7 +115,7 @@ class FileValidator:
                 f"Expected a {file_type}, but path points to a directory."
             )
             return result
-        
+
         # Check readability
         if not os.access(path, os.R_OK):
             result.add_error(
@@ -123,7 +123,7 @@ class FileValidator:
                 f"Permission denied. Check file permissions."
             )
             return result
-        
+
         # Check file size
         if max_size_mb:
             size_mb = path.stat().st_size / (1024 * 1024)
@@ -133,9 +133,9 @@ class FileValidator:
                     "Processing may be slow or consume significant memory."
                 )
             result.details['size_mb'] = round(size_mb, 2)
-        
+
         return result
-    
+
     @staticmethod
     def validate_directory_exists(
         dir_path: Union[str, Path],
@@ -143,17 +143,17 @@ class FileValidator:
     ) -> ValidationResult:
         """
         Validate that a directory exists.
-        
+
         Args:
             dir_path: Path to directory
             create_if_missing: Whether to create directory if missing
-            
+
         Returns:
             ValidationResult with validation status
         """
         result = ValidationResult()
         path = Path(dir_path)
-        
+
         if not path.exists():
             if create_if_missing:
                 try:
@@ -174,9 +174,9 @@ class FileValidator:
                 f"Path is not a directory: {dir_path}\n"
                 f"Expected a directory, but path points to a file."
             )
-        
+
         return result
-    
+
     @staticmethod
     def validate_file_format(
         file_path: Union[str, Path],
@@ -184,30 +184,30 @@ class FileValidator:
     ) -> ValidationResult:
         """
         Validate file has expected extension.
-        
+
         Args:
             file_path: Path to file
             expected_extensions: List of valid extensions (e.g., ['.json', '.yaml'])
-            
+
         Returns:
             ValidationResult with validation status
         """
         result = ValidationResult()
         path = Path(file_path)
-        
+
         if path.suffix.lower() not in [ext.lower() for ext in expected_extensions]:
             result.add_error(
                 f"Invalid file format: {path.suffix}\n"
                 f"Expected one of: {', '.join(expected_extensions)}\n"
                 f"File: {file_path}"
             )
-        
+
         return result
 
 
 class NumericValidator:
     """Validates numeric inputs"""
-    
+
     @staticmethod
     def validate_range(
         value: Union[int, float],
@@ -217,30 +217,30 @@ class NumericValidator:
     ) -> ValidationResult:
         """
         Validate that a number is within specified range.
-        
+
         Args:
             value: Value to validate
             min_value: Minimum allowed value (inclusive)
             max_value: Maximum allowed value (inclusive)
             field_name: Name of field for error messages
-            
+
         Returns:
             ValidationResult with validation status
         """
         result = ValidationResult()
-        
+
         if min_value is not None and value < min_value:
             result.add_error(
                 f"{field_name} must be >= {min_value}, got {value}"
             )
-        
+
         if max_value is not None and value > max_value:
             result.add_error(
                 f"{field_name} must be <= {max_value}, got {value}"
             )
-        
+
         return result
-    
+
     @staticmethod
     def validate_positive(
         value: Union[int, float],
@@ -249,17 +249,17 @@ class NumericValidator:
     ) -> ValidationResult:
         """
         Validate that a number is positive.
-        
+
         Args:
             value: Value to validate
             field_name: Name of field for error messages
             allow_zero: Whether zero is considered valid
-            
+
         Returns:
             ValidationResult with validation status
         """
         result = ValidationResult()
-        
+
         if allow_zero:
             if value < 0:
                 result.add_error(
@@ -270,9 +270,9 @@ class NumericValidator:
                 result.add_error(
                     f"{field_name} must be > 0, got {value}"
                 )
-        
+
         return result
-    
+
     @staticmethod
     def parse_int_safe(
         value: Any,
@@ -281,15 +281,15 @@ class NumericValidator:
     ) -> int:
         """
         Safely parse integer with helpful error message.
-        
+
         Args:
             value: Value to parse
             default: Default value if parsing fails
             field_name: Name of field for error messages
-            
+
         Returns:
             Parsed integer
-            
+
         Raises:
             ValidationError: If parsing fails and no default provided
         """
@@ -311,7 +311,7 @@ class NumericValidator:
 
 class StringValidator:
     """Validates string inputs"""
-    
+
     @staticmethod
     def validate_not_empty(
         value: str,
@@ -319,23 +319,23 @@ class StringValidator:
     ) -> ValidationResult:
         """
         Validate that a string is not empty.
-        
+
         Args:
             value: String to validate
             field_name: Name of field for error messages
-            
+
         Returns:
             ValidationResult with validation status
         """
         result = ValidationResult()
-        
+
         if not value or not value.strip():
             result.add_error(
                 f"{field_name} cannot be empty"
             )
-        
+
         return result
-    
+
     @staticmethod
     def validate_enum(
         value: str,
@@ -345,30 +345,30 @@ class StringValidator:
     ) -> ValidationResult:
         """
         Validate that a string is one of allowed values.
-        
+
         Args:
             value: Value to validate
             allowed_values: List of valid values
             field_name: Name of field for error messages
             case_sensitive: Whether comparison is case-sensitive
-            
+
         Returns:
             ValidationResult with validation status
         """
         result = ValidationResult()
-        
+
         comparison_value = value if case_sensitive else value.lower()
         comparison_allowed = (
             allowed_values if case_sensitive
             else [v.lower() for v in allowed_values]
         )
-        
+
         if comparison_value not in comparison_allowed:
             result.add_error(
                 f"Invalid value for {field_name}: {value}\n"
                 f"Must be one of: {', '.join(allowed_values)}"
             )
-        
+
         return result
 
 
@@ -382,7 +382,7 @@ def validate_config_value(
 ) -> Any:
     """
     Comprehensive validation for configuration values.
-    
+
     Args:
         value: Value to validate
         value_type: Expected type
@@ -390,15 +390,15 @@ def validate_config_value(
         min_value: Optional minimum value (for numbers)
         max_value: Optional maximum value (for numbers)
         allowed_values: Optional list of allowed values (for enums)
-        
+
     Returns:
         Validated (and possibly coerced) value
-        
+
     Raises:
         ValidationError: If validation fails
     """
     result = ValidationResult()
-    
+
     # Type validation
     if not isinstance(value, value_type):
         try:
@@ -409,7 +409,7 @@ def validate_config_value(
                 f"got {type(value).__name__}",
                 field=field_name
             )
-    
+
     # Range validation for numbers
     if isinstance(value, (int, float)):
         range_result = NumericValidator.validate_range(
@@ -417,7 +417,7 @@ def validate_config_value(
         )
         if not range_result.valid:
             result.errors.extend(range_result.errors)
-    
+
     # Enum validation
     if allowed_values:
         if value not in allowed_values:
@@ -425,7 +425,7 @@ def validate_config_value(
                 f"Invalid value for {field_name}: {value}\n"
                 f"Must be one of: {', '.join(map(str, allowed_values))}"
             )
-    
+
     result.raise_if_invalid()
     return value
 

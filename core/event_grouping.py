@@ -25,7 +25,7 @@ class GroupingStrategy(str, Enum):
 class EventGroup:
     """
     A group of related events representing a potential incident.
-    
+
     Attributes:
         id: Unique identifier for the group
         events: List of events in this group
@@ -44,23 +44,23 @@ class EventGroup:
     severity: str = "medium"
     tags: Dict[str, str] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def add_event(self, event: NormalizedSignal) -> None:
         """
         Add an event to this group and update metadata.
-        
+
         Args:
             event: Event to add
         """
         self.events.append(event)
         self.services.add(event.source)
-        
+
         # Update time window
         if self.start_time is None or event.timestamp < self.start_time:
             self.start_time = event.timestamp
         if self.end_time is None or event.timestamp > self.end_time:
             self.end_time = event.timestamp
-        
+
         # Update severity (keep highest)
         severity_order = ['low', 'medium', 'high', 'critical']
         if event.severity in severity_order:
@@ -68,13 +68,13 @@ class EventGroup:
             event_idx = severity_order.index(event.severity)
             if event_idx > current_idx:
                 self.severity = event.severity
-    
+
     def duration_minutes(self) -> float:
         """Get duration of event group in minutes"""
         if self.start_time and self.end_time:
             return (self.end_time - self.start_time).total_seconds() / 60
         return 0.0
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert event group to dictionary"""
         return {
@@ -93,14 +93,14 @@ class EventGroup:
 class EventGrouper:
     """
     Groups events into incidents based on configurable strategies.
-    
+
     Features:
     - Time-window based grouping
     - Service affinity grouping
     - Sliding window with overlap
     - Configurable time windows
     """
-    
+
     def __init__(
         self,
         time_window_minutes: int = 15,
@@ -110,7 +110,7 @@ class EventGrouper:
     ):
         """
         Initialize event grouper.
-        
+
         Args:
             time_window_minutes: Maximum time gap between events in same group
             strategy: Grouping strategy to use
@@ -121,23 +121,23 @@ class EventGrouper:
         self.strategy = strategy
         self.service_affinity = service_affinity
         self.min_events_per_group = min_events_per_group
-    
+
     def group_events(self, events: List[NormalizedSignal]) -> List[EventGroup]:
         """
         Group events into incidents.
-        
+
         Args:
             events: List of events to group
-            
+
         Returns:
             List of event groups
         """
         if not events:
             return []
-        
+
         # Sort events by timestamp
         sorted_events = sorted(events, key=lambda e: e.timestamp)
-        
+
         if self.strategy == GroupingStrategy.TIME_WINDOW:
             return self._group_by_time_window(sorted_events)
         elif self.strategy == GroupingStrategy.SERVICE_AFFINITY:
@@ -146,23 +146,23 @@ class EventGrouper:
             return self._group_by_sliding_window(sorted_events)
         else:
             return self._group_by_time_window(sorted_events)
-    
+
     def _group_by_time_window(self, events: List[NormalizedSignal]) -> List[EventGroup]:
         """
         Group events based on time window proximity.
-        
+
         Events within time_window_minutes of each other belong to same group.
-        
+
         Args:
             events: Sorted list of events
-            
+
         Returns:
             List of event groups
         """
         groups: List[EventGroup] = []
         current_group: Optional[EventGroup] = None
         time_window = timedelta(minutes=self.time_window_minutes)
-        
+
         for event in events:
             if current_group is None:
                 # Start new group
@@ -171,7 +171,7 @@ class EventGrouper:
             else:
                 # Check if event fits in current group
                 time_diff = event.timestamp - current_group.end_time
-                
+
                 if time_diff <= time_window:
                     # Add to current group
                     current_group.add_event(event)
@@ -179,25 +179,25 @@ class EventGrouper:
                     # Close current group and start new one
                     if len(current_group.events) >= self.min_events_per_group:
                         groups.append(current_group)
-                    
+
                     current_group = EventGroup(id=f"group_{len(groups)}")
                     current_group.add_event(event)
-        
+
         # Add last group
         if current_group and len(current_group.events) >= self.min_events_per_group:
             groups.append(current_group)
-        
+
         return groups
-    
+
     def _group_by_service_affinity(self, events: List[NormalizedSignal]) -> List[EventGroup]:
         """
         Group events by both time window and service.
-        
+
         Events must be within time window AND from same service to group together.
-        
+
         Args:
             events: Sorted list of events
-            
+
         Returns:
             List of event groups
         """
@@ -208,7 +208,7 @@ class EventGrouper:
             if service not in service_events:
                 service_events[service] = []
             service_events[service].append(event)
-        
+
         # Apply time-window grouping within each service
         all_groups: List[EventGroup] = []
         for service, service_event_list in service_events.items():
@@ -217,65 +217,65 @@ class EventGrouper:
                 group.id = f"group_{service}_{len(all_groups)}"
                 group.metadata['service_affinity'] = service
                 all_groups.append(group)
-        
+
         # Sort groups by start time
         all_groups.sort(key=lambda g: g.start_time or datetime.min)
-        
+
         return all_groups
-    
+
     def _group_by_sliding_window(self, events: List[NormalizedSignal]) -> List[EventGroup]:
         """
         Group events using sliding window with potential overlap.
-        
+
         Each event starts a potential new group, collecting all events
         within the time window.
-        
+
         Args:
             events: Sorted list of events
-            
+
         Returns:
             List of event groups (may have overlapping events)
         """
         groups: List[EventGroup] = []
         time_window = timedelta(minutes=self.time_window_minutes)
-        
+
         for i, event in enumerate(events):
             # Create group starting at this event
             group = EventGroup(id=f"group_{i}")
             group.add_event(event)
-            
+
             # Add all events within time window
             for future_event in events[i+1:]:
                 if future_event.timestamp - event.timestamp <= time_window:
                     group.add_event(future_event)
                 else:
                     break  # Events are sorted, so we can stop
-            
+
             # Only add groups that meet minimum size
             if len(group.events) >= self.min_events_per_group:
                 groups.append(group)
-        
+
         return groups
-    
+
     def merge_overlapping_groups(self, groups: List[EventGroup]) -> List[EventGroup]:
         """
         Merge groups that have overlapping time windows.
-        
+
         Args:
             groups: List of event groups
-            
+
         Returns:
             List of merged groups
         """
         if not groups:
             return []
-        
+
         # Sort groups by start time
         sorted_groups = sorted(groups, key=lambda g: g.start_time or datetime.min)
-        
+
         merged: List[EventGroup] = []
         current = sorted_groups[0]
-        
+
         for next_group in sorted_groups[1:]:
             # Check for overlap
             if next_group.start_time and current.end_time:
@@ -291,10 +291,10 @@ class EventGrouper:
             else:
                 merged.append(current)
                 current = next_group
-        
+
         # Add last group
         merged.append(current)
-        
+
         return merged
 
 
@@ -305,12 +305,12 @@ def group_events_by_time_window(
 ) -> List[EventGroup]:
     """
     Convenience function to group events by time window.
-    
+
     Args:
         events: List of events to group
         time_window_minutes: Maximum time gap between events
         service_affinity: Whether to group by service as well
-        
+
     Returns:
         List of event groups
     """
@@ -318,11 +318,11 @@ def group_events_by_time_window(
         GroupingStrategy.SERVICE_AFFINITY if service_affinity
         else GroupingStrategy.TIME_WINDOW
     )
-    
+
     grouper = EventGrouper(
         time_window_minutes=time_window_minutes,
         strategy=strategy
     )
-    
+
     return grouper.group_events(events)
 
