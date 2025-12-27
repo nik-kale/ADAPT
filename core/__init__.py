@@ -95,6 +95,12 @@ from .telemetry import (
     get_tracer,
     get_meter,
 )
+from .event_grouping import (
+    EventGrouper,
+    EventGroup,
+    GroupingStrategy,
+    group_events_by_time_window,
+)
 
 __all__ = [
     # RCA Graph
@@ -217,4 +223,10 @@ __all__ = [
     'InstrumentedOrchestrator',
     'get_tracer',
     'get_meter',
+    
+    # v5.1 - Event Grouping
+    'EventGrouper',
+    'EventGroup',
+    'GroupingStrategy',
+    'group_events_by_time_window',
 ]
