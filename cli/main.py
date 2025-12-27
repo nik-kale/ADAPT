@@ -19,18 +19,38 @@ from rich.panel import Panel
 from rich.markdown import Markdown
 from rich import print as rprint
 
+from core.logging_manager import get_logging_manager, get_logger
+
 console = Console()
 
 
 @click.group()
 @click.version_option(version='2.0.0')
-def cli():
+@click.option('--log-level', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']), 
+              default=None, help='Set logging level (default: INFO or ADAPT_LOG_LEVEL env var)')
+@click.option('--log-file', type=click.Path(), default=None, help='Write logs to file')
+@click.option('--log-format', type=click.Choice(['json', 'text']), default='json', help='Log format')
+@click.pass_context
+def cli(ctx, log_level, log_file, log_format):
     """
     ADAPT - Agentic Diagnostics & Proactive Troubleshooting
 
     A modular framework for AI-driven root cause analysis.
     """
-    pass
+    # Ensure context object exists
+    ctx.ensure_object(dict)
+    
+    # Configure logging
+    manager = get_logging_manager()
+    manager.configure(
+        level=log_level,
+        log_file=log_file,
+        json_format=(log_format == 'json')
+    )
+    
+    # Store in context for commands
+    ctx.obj['logging_manager'] = manager
+    ctx.obj['logger'] = get_logger('cli')
 
 
 @cli.command()
