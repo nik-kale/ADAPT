@@ -95,6 +95,13 @@ from .telemetry import (
     get_tracer,
     get_meter,
 )
+from .logging_manager import (
+    LoggingManager,
+    ProgressTracker,
+    get_logging_manager,
+    get_logger,
+    LogLevel,
+)
 
 __all__ = [
     # RCA Graph
@@ -217,4 +224,11 @@ __all__ = [
     'InstrumentedOrchestrator',
     'get_tracer',
     'get_meter',
+    
+    # v5.1 - Enhanced Logging
+    'LoggingManager',
+    'ProgressTracker',
+    'get_logging_manager',
+    'get_logger',
+    'LogLevel',
 ]
