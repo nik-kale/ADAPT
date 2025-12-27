@@ -101,6 +101,11 @@ from .logging_manager import (
     get_logging_manager,
     get_logger,
     LogLevel,
+from .event_grouping import (
+    EventGrouper,
+    EventGroup,
+    GroupingStrategy,
+    group_events_by_time_window,
 )
 
 __all__ = [
@@ -231,4 +236,9 @@ __all__ = [
     'get_logging_manager',
     'get_logger',
     'LogLevel',
+    # v5.1 - Event Grouping
+    'EventGrouper',
+    'EventGroup',
+    'GroupingStrategy',
+    'group_events_by_time_window',
 ]
